@@ -90,8 +90,8 @@ Lead research assistant. JC steers, I lead execution. I recommend (defaulting to
 
 | Brief | Topic | Status |
 |-------|-------|--------|
-| RB-001 | Prior art survey | **Open — awaiting source responses** |
-| RB-002 | Theoretical basis: elimination vs similarity | Pending RB-001 |
+| RB-001 | Prior art survey | **Complete** (3/4 sources — Gemini pending) |
+| RB-002 | Theoretical basis: elimination vs similarity | **Next** |
 | RB-003 | Scoring mechanics | Pending RB-002 |
 | RB-004 | Tree construction | Pending RB-002 |
 | RB-005 | Failure modes | Pending RB-003/004 |
@@ -164,10 +164,12 @@ tests/                           # Test suite (Phase 1+)
 
 ## Open Questions
 
-- Does elimination-based retrieval have empirical support over similarity? (RB-001, RB-002)
+- **CRITICAL (from RB-001):** RAPTOR's collapsed tree (flat retrieval over enriched representations) outperforms strict tree traversal. Under what conditions does elimination beat enriched flat? (RB-002)
+- Does elimination-based retrieval have empirical support over similarity? (RB-001 partial answer: yes for complex tasks, but caveats. RB-002 to deepen.)
 - How should branches be scored? Embeddings, LLM-as-judge, hybrid? (RB-003)
 - How is the tree constructed and maintained? (RB-004)
-- Where does this approach break? (RB-005)
+- Where does this approach break? Cross-branch queries identified as #1 failure mode. (RB-005)
+- **NEW (from RB-001):** LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Parallel traversal, hard token budget, external source pointers.)
 
 ## Constraints
 
