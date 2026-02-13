@@ -10,7 +10,7 @@ last_session: "2026-02-13"
 # Current focus
 current:
   phase: "research"  # discovery | research | implementation | validation
-  focus: "RB-002 consolidation complete. Theoretical findings challenge strict elimination — hybrid coarse-to-fine approach recommended. H1 reframing needed. RB-003 is next priority."
+  focus: "H1 reframed into H1a/H1b/H1c (token efficiency, hybrid superiority, scoring lever). RB-003 scoring mechanics is next — gates H1c directly."
   blockers: []
 
 # Research briefs status
@@ -33,13 +33,14 @@ briefs:
 
 # Hypothesis summary
 hypotheses:
-  total: 1
+  total: 3
   validated: 0
   invalidated: 0
-  uncertain: 1
-  highest_confidence: "H1 at 55% (strict elimination) / 70% (hybrid coarse-to-fine reframing)"
-  lowest_confidence: "H1 at 55%"
-  notes: "RB-002 theoretical analysis weakens confidence in strict elimination but strengthens confidence in hybrid approach. H1 reframing recommended."
+  uncertain: 3
+  retired: 1  # Original H1
+  highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 75%"
+  lowest_confidence: "H1a (token efficiency) at 65%"
+  notes: "Original H1 retired and split into H1a (65%), H1b (75%), H1c (70%). Each independently testable. H1c (scoring lever) is the immediate research priority via RB-003."
 
 # Knowledge accumulation
 knowledge:
@@ -51,10 +52,10 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Discuss H1 reframing with JC — 'hierarchical coarse-to-fine with hard token budgets' vs original 'elimination > similarity'"
-  - "Scaffold and write RB-003 prompt (scoring mechanics — the exponential lever)"
-  - "Update hypotheses.md with split confidence (strict elimination vs hybrid)"
+  - "Scaffold and write RB-003 prompt (scoring mechanics — the exponential lever for H1c)"
+  - "JC runs RB-003 prompt across sources"
+  - "Consolidate RB-003 responses"
   - "Add Gemini response to RB-001/RB-002 if/when available"
 
 # Notes for next session
-notes: "RB-002 consolidation is the most consequential finding so far. The theoretical consensus across 3 independent sources is unambiguous: strict elimination is fragile, hybrid coarse-to-fine is the theoretically grounded approach. This doesn't kill HCR — it sharpens it. HCR's differentiators (hierarchy for enrichment + coarse routing, hard token budget, external source pointers) remain valid and novel. But the retrieval strategy should be 'coarse elimination + fine similarity', not 'strict elimination top to bottom'. Key design implication: beam width > tree depth. Scoring quality has exponential returns via (1-ε)^d."
+notes: "H1 reframing complete. Original hypothesis retired, replaced by H1a (token efficiency, 65%), H1b (hybrid superiority, 75%), H1c (scoring lever, 70%). This is a refinement, not a pivot — core architecture remains valid. RB-003 is now the critical path: scoring feasibility gates H1c and informs the other two. Design implication locked in: beam width > tree depth, coarse routing + fine similarity."

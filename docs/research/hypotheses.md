@@ -2,7 +2,7 @@
 
 Track beliefs, confidence levels, and validation status.
 
-**Last Updated:** {DATE}
+**Last Updated:** 2026-02-13
 
 ---
 
@@ -12,44 +12,131 @@ Track beliefs, confidence levels, and validation status.
 |--------|-------|
 | Validated | 0 |
 | Invalidated | 0 |
-| Uncertain | 0 |
-| **Total** | **0** |
+| Uncertain | 3 |
+| Retired | 1 |
+| **Total Active** | **3** |
 
 ---
 
 ## Active Hypotheses
 
-*No hypotheses documented yet.*
+### H1a: Token efficiency of hierarchical retrieval
 
-<!-- Template for adding hypotheses:
-
-### H-{NNN}: {Hypothesis Statement}
-
-**Status:** uncertain | validated | invalidated
-**Confidence:** {N}%
-**Created:** {DATE}
-**Last Updated:** {DATE}
+**Status:** uncertain
+**Confidence:** 65%
+**Created:** 2026-02-13
+**Last Updated:** 2026-02-13
 
 **Statement:**
-{Clear, testable hypothesis}
+Under hard token budgets (<400 tokens), hierarchical coarse-to-fine retrieval achieves equivalent or better answer accuracy than flat similarity retrieval with unconstrained token spend over the same corpus.
 
 **Evidence For:**
-- {Evidence supporting this hypothesis}
+- RB-001: Prior art shows hierarchical systems (RAPTOR, LATTICE) outperform flat RAG by 2-20pp on complex tasks
+- RB-001: No existing system targets hard token budgets as primary constraint — this is an untested but structurally sound niche
+- RB-002: Hierarchy provably reduces search space, which directly maps to fewer retrieved tokens
 
 **Evidence Against:**
-- {Evidence contradicting this hypothesis}
+- RB-002: Strict elimination compounds error at (1-ε)^d — token savings from aggressive pruning come at accuracy cost
+- RB-001: RAPTOR's collapsed-tree approach (enter at any level) suggests rigid top-down traversal isn't optimal — token efficiency may require flexible entry points
 
 **Implications:**
-- {What this hypothesis affects if true/false}
+- If true: HCR's core value proposition is validated — correct answers with minimum context
+- If false: Hierarchy may still help quality but not enough to justify the constraint; token budgets may need to be relaxed or the approach rethought
 
 **Validation Path:**
-- {How to test this hypothesis}
+- RB-003 (scoring mechanics) informs feasibility of maintaining accuracy under tight budgets
+- RB-006 (benchmark design) will define the experimental protocol
+- Empirical test: compare HCR (<400 tokens) vs flat retrieval (unconstrained) on precision-critical queries
 
 **History:**
-- {DATE}: Created at {N}% confidence
-- {DATE}: Updated to {N}% because {reason}
+- 2026-02-13: Created at 65%. Split from original H1 after RB-002 theoretical analysis. Prior art supports hierarchy advantage; token budget constraint is novel and untested.
 
--->
+---
+
+### H1b: Hybrid coarse-to-fine superiority
+
+**Status:** uncertain
+**Confidence:** 75%
+**Created:** 2026-02-13
+**Last Updated:** 2026-02-13
+
+**Statement:**
+Coarse elimination (hierarchy-guided routing) combined with fine similarity search within surviving branches outperforms either pure elimination or pure similarity retrieval alone on precision and recall.
+
+**Evidence For:**
+- RB-002: Three independent sources converge — hybrid coarse-to-fine is theoretically optimal under realistic conditions
+- RB-002: RAPTOR's collapsed-tree result empirically demonstrates that flexible traversal (a form of coarse-to-fine) beats strict top-down
+- RB-002: Information-theoretic analysis shows hierarchy reduces entropy (good for routing) while similarity handles residual ambiguity (good for selection)
+
+**Evidence Against:**
+- RB-002: Under stringent conditions (strong clustering, admissible scoring, modest depth), strict elimination alone can match or beat hybrid — but these conditions are hard to guarantee in practice
+- No direct empirical comparison of hybrid vs enriched flat RAG (with reranking, HyDE, etc.) under identical conditions
+
+**Implications:**
+- If true: HCR's traversal strategy should be "route coarsely, search finely" — beam width > tree depth
+- If false: One of the pure approaches dominates, simplifying the architecture but narrowing the advantage
+
+**Validation Path:**
+- RB-003 will determine scoring feasibility for the coarse routing stage
+- RB-004 (tree construction) will determine if trees can be built to support coarse routing effectively
+- Empirical test: compare pure elimination, pure similarity, and hybrid on same corpus and queries
+
+**History:**
+- 2026-02-13: Created at 75%. Strongest theoretical support of the three sub-hypotheses. Three-source consensus from RB-002.
+
+---
+
+### H1c: Scoring quality as exponential lever
+
+**Status:** uncertain
+**Confidence:** 70%
+**Created:** 2026-02-13
+**Last Updated:** 2026-02-13
+
+**Statement:**
+Per-level scoring quality is the primary determinant of hierarchical retrieval quality, with error compounding at (1-ε)^d where ε is per-level error rate and d is tree depth. Achieving admissible or calibrated scoring is both feasible and necessary for HCR to outperform flat retrieval.
+
+**Evidence For:**
+- RB-002: All three sources identify (1-ε)^d as the governing equation — small improvements in ε yield exponential gains
+- RB-002: This is mathematically derived, not empirical speculation — the compounding is structural
+- RB-001: LATTICE uses LLM-as-judge scoring and achieves strong results, suggesting high-quality scoring is feasible
+
+**Evidence Against:**
+- RB-002: "Admissible" scoring (never incorrectly prune the correct branch) may be unrealistically strict in practice
+- RB-001: No system in the prior art reports achieving formally admissible scoring bounds
+- Cost concern: high-quality scoring (e.g., LLM-as-judge) at every node may negate token savings from hierarchy
+
+**Implications:**
+- If true: Scoring is where R&D effort should concentrate — it's the highest-leverage component
+- If false: Scoring quality has diminishing returns, and the architecture should compensate with wider beams or shallower trees instead
+
+**Validation Path:**
+- **RB-003 (scoring mechanics) is the direct test** — what scoring methods exist, what accuracy is achievable, at what cost
+- Empirical: measure per-level accuracy of different scoring methods (embeddings, LLM-as-judge, hybrid, geometric bounds)
+- Sensitivity analysis: how does retrieval quality degrade as ε increases?
+
+**History:**
+- 2026-02-13: Created at 70%. Mathematically grounded via RB-002. Feasibility of admissible scoring is the open question — RB-003 will address this directly.
+
+---
+
+## Retired Hypotheses
+
+### H1 (original): Elimination vs similarity
+
+**Status:** retired (reframed)
+**Final Confidence:** 55% (strict elimination) / 70% (hybrid reframing)
+**Created:** 2026-02-13 (project inception)
+**Retired:** 2026-02-13
+
+**Original Statement:**
+Retrieval by elimination (narrowing through tree layers) outperforms retrieval by similarity (nearest-neighbour in vector space) for precision-critical, token-sensitive LLM systems.
+
+**Reason for Retirement:**
+RB-002 theoretical analysis from three independent sources concluded this framing is too binary. Strict elimination is theoretically fragile (error compounds at (1-ε)^d). The real question isn't elimination *vs* similarity — it's how to combine them optimally. Reframed as three independent, testable sub-hypotheses: H1a (token efficiency), H1b (hybrid superiority), H1c (scoring as lever).
+
+**Legacy:**
+The original hypothesis drove the right research. Its failure as stated is a feature — it forced us to find a more precise, testable set of claims.
 
 ---
 

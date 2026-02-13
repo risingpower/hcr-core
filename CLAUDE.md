@@ -1,6 +1,6 @@
 # hcr-core
 
-Hierarchical Context Retrieval — tree-based retrieval by elimination for LLM systems. Replaces flat RAG. Minimum viable context: correct answer, fewest tokens.
+Hierarchical Context Retrieval — coarse-to-fine retrieval for LLM systems. Minimum viable context: correct answer, fewest tokens.
 
 **This is R&D.** The concept is unproven. Validate before building.
 
@@ -80,9 +80,19 @@ Lead research assistant. JC steers, I lead execution. I recommend (defaulting to
 | **2. Integration layer** | Connectors for external data sources | Planned |
 | **3. Autonomous index manager** | Agent that maintains the tree | Planned |
 
-## The Hypothesis
+## The Hypotheses
 
-**H1:** Retrieval by elimination (narrowing through tree layers) outperforms retrieval by similarity (nearest-neighbour in vector space) for precision-critical, token-sensitive LLM systems.
+Original H1 ("elimination > similarity") retired after RB-002. Reframed as three independent, testable sub-hypotheses:
+
+| ID | Statement | Confidence | Key Test |
+|----|-----------|------------|----------|
+| **H1a** | Under hard token budgets (<400 tokens), hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity with unconstrained tokens | 65% | RB-006 benchmark |
+| **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 75% | RB-006 benchmark |
+| **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 70% | **RB-003** (next) |
+
+H1c is the immediate research priority — scoring feasibility gates the other two.
+
+Full details: `docs/research/hypotheses.md`
 
 **Consumer:** Su — agentic command centre. Purely outcomes-focused, minimal context, needs precise retrieval from a growing organisation.
 
@@ -113,11 +123,13 @@ Templates: `docs/research/briefs/_template-*.md`
 ## Current Design (Unvalidated)
 
 1. Data **mapped** into hierarchical index tree — nodes hold descriptions + pointers to children or leaf sources
-2. Query enters at root. **Score all branches** at current level using lightweight numerical embeddings
-3. Surviving branches **traversed in parallel** (async)
-4. Each level: **score, prune, traverse** — until leaf nodes reached
+2. Query enters at root. **Score all branches** at current level (scoring method TBD — RB-003)
+3. **Coarse routing:** top levels eliminate broad irrelevance via hierarchy (beam width > tree depth)
+4. **Fine retrieval:** within surviving branches, similarity search selects final context
 5. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) — data stays where it lives
 6. Target: **under 400 tokens** retrieved context
+
+*Design note:* Traversal strategy shifted from strict elimination to coarse-to-fine hybrid after RB-002 theoretical analysis.
 
 ## Tech Stack
 
@@ -164,10 +176,10 @@ tests/                           # Test suite (Phase 1+)
 
 ## Open Questions
 
-- **RESOLVED (RB-002):** ~~Under what conditions does elimination beat enriched flat?~~ — Strict elimination wins only under stringent conditions (strong clustering, admissible scoring, modest depth). Hybrid coarse-to-fine is theoretically superior as default.
-- **CRITICAL (from RB-002):** H1 needs reframing. "Elimination > similarity" is too blunt. Proposed: "Hierarchical coarse-to-fine retrieval with hard token budgets outperforms flat similarity retrieval for precision-critical, token-sensitive LLM systems."
-- **CRITICAL (from RB-002):** Scoring quality is the exponential lever — per-level accuracy drives (1-ε)^d. Can we achieve admissible bounds or calibrated scoring? (RB-003)
-- How should branches be scored? Embeddings, LLM-as-judge, hybrid, geometric bounds? (RB-003 — now highest priority)
+- **RESOLVED (RB-002):** ~~Under what conditions does elimination beat enriched flat?~~ — Strict elimination wins only under stringent conditions. Hybrid coarse-to-fine is theoretically superior.
+- **RESOLVED:** ~~H1 needs reframing~~ — Split into H1a/H1b/H1c (2026-02-13). See hypotheses.md.
+- **CRITICAL (H1c, RB-003):** Scoring quality is the exponential lever — per-level accuracy drives (1-ε)^d. Can we achieve admissible bounds or calibrated scoring?
+- How should branches be scored? Embeddings, LLM-as-judge, hybrid, geometric bounds? (RB-003 — highest priority)
 - How is the tree constructed and maintained? Shallow wide trees preferred over deep narrow. (RB-004)
 - Where does this approach break? Cross-branch queries confirmed as #1 failure mode by theory. (RB-005)
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
