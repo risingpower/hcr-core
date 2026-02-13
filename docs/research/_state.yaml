@@ -18,9 +18,9 @@ briefs:
   active:
     - id: "RB-002"
       title: "Theoretical basis: elimination vs similarity"
-      status: "pending"
-      assigned_to: "claude"
-      notes: "Central question sharpened by RB-001: under what conditions does strict top-down elimination outperform enriched flat retrieval?"
+      status: "created"
+      assigned_to: "external"
+      notes: "Prompt written. Awaiting source responses. Central question: under what conditions does strict top-down elimination outperform enriched flat retrieval?"
   completed:
     - id: "RB-001"
       title: "Prior art survey"
