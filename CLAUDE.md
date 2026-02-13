@@ -105,9 +105,9 @@ Full details: `docs/research/hypotheses.md`
 | RB-003 | Scoring mechanics | **Complete** (3/4 sources — cascade architecture confirmed) |
 | RB-004 | Tree construction | **Complete** (4/4 sources — convergent construction recipe confirmed) |
 | RB-005 | Failure modes | **Complete** (3/4 sources — no showstopper, 10–20% expected failure rate) |
-| RB-006 | Benchmark design | **Next** — final brief before go/no-go |
+| RB-006 | Benchmark design | **Complete** (4/4 sources — highest convergence of any brief) |
 
-After RB-006: **Go/no-go decision** on Phase 1.
+**All research briefs complete. Go/no-go decision: GO on Phase 1.**
 
 ## Deep Research Protocol
 
@@ -199,7 +199,7 @@ tests/                           # Test suite (Phase 1+)
 - **OPEN (RB-004 gap):** Do contrastive summaries ("covers X, NOT Y") actually improve per-level routing accuracy vs generic summaries? No empirical evidence exists. Highest-value experiment for Phase 1.
 - **OPEN (RB-004 gap):** No routing-specific tree quality metric exists in the literature. Per-level routing accuracy, sibling distinctiveness, entity coverage proposed but unvalidated. HCR can fill this gap.
 - **RESOLVED (RB-005):** ~~Where does this approach break?~~ — 26 failure modes identified. No showstopper. 10–20% expected failure rate. Top residual risks: DPI information loss (#1), budget impossibility for aggregation, beam collapse. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type.
-- **CRITICAL (RB-006):** What benchmark validates the architecture? Must include per-level routing accuracy, cross-branch sub-type coverage, beam vs collapsed comparison, budget-impossible detection.
+- **RESOLVED (RB-006):** ~~What benchmark validates the architecture?~~ — Four-source convergent design: hybrid corpus (50K–100K chunks), 300–400 stratified queries, 7 core metrics (ε, sufficiency@B, token efficiency curve, beam vs collapsed, cross-link quality, tree quality, standard IR), 4 baselines, fail-fast sequence with kill criteria. MVB costs $15–30. Per-level routing accuracy ε is the breakthrough metric (never measured in any system). Kill criterion: flat+CE beats HCR at full corpus with significance.
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
 
 ## Constraints

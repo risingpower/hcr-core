@@ -10,17 +10,12 @@ last_session: "2026-02-13"
 # Current focus
 current:
   phase: "research"  # discovery | research | implementation | validation
-  focus: "RB-005 complete. Comprehensive failure mode analysis: 26 failure modes identified, 10-20% expected overall failure rate, no showstopper. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. RB-006 (benchmark design) is next — final brief before go/no-go."
+  focus: "RB-006 complete. All six research briefs done. Benchmark design is convergent (4/4 source agreement). Go/no-go decision: GO on Phase 1. Next: scaffold Phase 1 implementation starting with benchmark infrastructure."
   blockers: []
 
 # Research briefs status
 briefs:
-  active:
-    - id: "RB-006"
-      title: "Benchmark design"
-      status: "pending"
-      assigned_to: "unassigned"
-      notes: "Final brief before go/no-go. Must include: per-level routing accuracy as first-class metric, cross-branch sub-type coverage, beam-search vs collapsed-tree comparison, budget-impossible query detection, entity cross-link quality metrics."
+  active: []
   completed:
     - id: "RB-001"
       title: "Prior art survey"
@@ -42,6 +37,10 @@ briefs:
       title: "Failure modes"
       completed: "2026-02-13"
       key_finding: "No architectural showstopper. 26 failure modes identified across all pipeline stages. Overall expected failure rate: 10–20%. Top residual risks: (1) DPI information loss for detail queries, (2) budget impossibility for aggregation/listing queries, (3) beam collapse without diversity enforcement. Three design changes needed: beam diversity, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type (entity-centric). Transition period (small corpus) is highest-risk deployment phase."
+    - id: "RB-006"
+      title: "Benchmark design"
+      completed: "2026-02-13"
+      key_finding: "Four-source convergence on benchmark design. Hybrid corpus (50K–100K chunks from GitLab handbook + EnronQA + synthetic injectors). 300–400 stratified queries with budget-feasibility labels. 7 core metrics led by per-level routing accuracy ε (never measured in any system) and answer sufficiency under token constraint. 4 baselines (BM25, hybrid flat, flat+CE as kill baseline, RAPTOR). Fail-fast sequence with kill criteria at each step. MVB costs $15–30 in LLM API calls. Success criteria: HCR@400 ≥ flat@400 + 5pp, ε ≤ 0.03 per level, dual-path ≥ single-path + 3pp. Kill: flat+CE beats HCR at full corpus with significance."
 
 # Hypothesis summary
 hypotheses:
@@ -52,7 +51,7 @@ hypotheses:
   retired: 1  # Original H1
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "RB-005 failure analysis reinforces H1b (hybrid architecture confirmed by all three sources). H1c mechanism broadened — entity cross-link quality is at least as important as per-level scoring quality for the dominant query type (entity-spanning). H1a scoped by budget impossibility class: 400-token constraint creates ~5-20% structurally unanswerable queries. No confidence changes — RB-006 needed for empirical validation."
+  notes: "All six research briefs complete. No showstoppers found. Architecture fully specified. Benchmark designed. Ready for empirical validation in Phase 1."
 
 # Knowledge accumulation
 knowledge:
@@ -64,11 +63,13 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Scaffold and write RB-006 prompt (benchmark design — final brief before go/no-go)"
-  - "JC runs RB-006 prompt across sources"
-  - "Consolidate RB-006 responses"
-  - "Go/no-go decision on Phase 1"
-  - "Add Gemini responses to RB-001/RB-002/RB-003/RB-004/RB-005 if/when available"
+  - "Go/no-go decision: all evidence supports GO"
+  - "Update CLAUDE.md to reflect Phase 1 readiness"
+  - "Scaffold Phase 1 project structure (benchmark as first deliverable)"
+  - "Build corpus pipeline (GitLab handbook + EnronQA + synthetic injectors)"
+  - "Implement flat+CE baseline first (it's the comparison target)"
+  - "Build tree construction with instrumented ε logging"
+  - "Run fail-fast experiments 1–3 before full evaluation"
 
 # Notes for next session
-notes: "RB-005 consolidation complete. Three-source consensus: no showstopper, 10-20% overall failure rate, bounded and diagnosable. Key new insights: (1) token-budget impossibility is orthogonal to routing quality — aggregation/listing queries cannot be answered in 400 tokens regardless of retrieval, (2) entity cross-links are more critical than routing summaries for the dominant query type (entity-centric, 40-55% of enterprise queries), (3) collapsed-tree should be co-primary not fallback (RAPTOR evidence), (4) beam collapse is a design gap needing diversity enforcement. Three design changes recommended before Phase 1: beam diversity, collapsed co-primary, external source handling. RB-006 is the final gate."
+notes: "RB-006 consolidation complete with 4/4 sources. Highest source agreement of any brief. Benchmark design is convergent — no fundamental conflicts, only calibration differences in thresholds. Key decisions: corpus at 50K–100K chunks (not docs), sufficiency@B as primary metric (not nDCG), ε₁ > 0.05 as kill threshold, contrastive-vs-generic summaries as highest-value component ablation. Phase 0 (Research & Validation) is complete. Phase 1 (Core Library) can begin. First implementation deliverable should be the benchmark infrastructure itself."
