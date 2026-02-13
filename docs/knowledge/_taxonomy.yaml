@@ -1,0 +1,63 @@
+# R&D Knowledge Taxonomy
+# Machine-readable index for programmatic navigation
+#
+# This file is the source of truth for the knowledge structure.
+# Update this when adding patterns, contexts, domains, or edge cases.
+
+version: "1.0"
+domain: "{PROJECT_DOMAIN}"  # e.g., "mobile-traversal", "accessibility", "web-crawling"
+created: "{DATE}"
+last_updated: "{DATE}"
+
+# Pattern definitions (Level 1)
+# Recurring phenomena that can be named, identified, and handled
+patterns: {}
+  # Example:
+  # toggle:
+  #   name: "Toggle Control"
+  #   path: "patterns/toggle"
+  #   identification:
+  #     - "isCheckable == true"
+  #     - "className contains 'Switch' or 'Toggle'"
+  #   default_handling: "restore-state-after-interaction"
+  #   variants:
+  #     - id: "settings-toggle"
+  #       distinguisher: "Located in preferences/settings screens"
+  #     - id: "list-item-toggle"
+  #       distinguisher: "Embedded within list items"
+  #   reference_count: 0
+
+# Context definitions (Level 3)
+# Environmental factors that affect pattern behavior
+contexts: {}
+  # Example:
+  # scrollable:
+  #   name: "Scrollable Container"
+  #   path: "contexts/scrollable"
+  #   identification:
+  #     - "isScrollable == true"
+  #     - "className in ['RecyclerView', 'ScrollView', 'ListView']"
+  #   affects_patterns:
+  #     - "toggle"
+  #     - "button"
+
+# Domain definitions (Level 4)
+# Platform/framework-specific constraints
+domains: {}
+  # Example:
+  # compose:
+  #   name: "Jetpack Compose"
+  #   path: "domains/compose"
+  #   identification:
+  #     - "className contains 'ComposeView'"
+  #   overrides_patterns:
+  #     - "toggle"  # Compose toggles have different accessibility properties
+
+# Statistics for quick assessment
+stats:
+  total_patterns: 0
+  total_variants: 0
+  total_contexts: 0
+  total_domains: 0
+  total_edge_cases: 0
+  total_references: 0

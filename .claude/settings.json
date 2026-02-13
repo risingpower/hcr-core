@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"git push\"",
+        "hooks": [{ "type": "command", "command": "node -e \"console.error('[Hook] Review changes before push...')\"" }],
+        "description": "Reminder before git push"
+      },
+      {
+        "matcher": "tool == \"Write\" && tool_input.file_path matches \"\\\\.(md|txt)$\" && !(tool_input.file_path matches \"docs/|README|CLAUDE|GLOSSARY\")",
+        "hooks": [{ "type": "command", "command": "node -e \"console.error('[Hook] Consider using docs/ directory for documentation')\"" }],
+        "description": "Suggest docs/ for .md files (non-blocking)"
+      },
+      {
+        "matcher": "tool == \"Edit\" || tool == \"Write\"",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/hooks/suggest-compact.js" }],
+        "description": "Suggest manual compaction at logical intervals"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"(python manage.py runserver|uvicorn|gunicorn)\"",
+        "hooks": [{ "type": "command", "command": "node -e \"if(!process.env.TMUX){console.error('[Hook] Consider running in tmux for session persistence')}\"" }],
+        "description": "Reminder to use tmux for long-running commands"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\\\.py$\"",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/hooks/check-print.js" }],
+        "description": "Warn about print() after Python edits"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"gh pr create\"",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/hooks/log-pr-url.js" }],
+        "description": "Log PR URL after PR creation"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/hooks/audit-print.js" }],
+        "description": "Audit print() in modified files after each response"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/hooks/session-start.js" }],
+        "description": "Load previous session context on new session"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "node .claude/scripts/hooks/session-end.js" },
+          { "type": "command", "command": "node .claude/scripts/hooks/evaluate-session.js" }
+        ],
+        "description": "Persist session state and extract patterns on session end"
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "node .claude/scripts/hooks/pre-compact.js" }],
+        "description": "Save state before context compaction"
+      }
+    ]
+  }
+}

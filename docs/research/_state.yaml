@@ -1,0 +1,54 @@
+# Research State
+# Machine-readable current state for session continuity
+#
+# Update this at session end and read at session start.
+
+version: "1.0"
+last_updated: "{DATE}"
+last_session: "{DATE}"
+
+# Current focus
+current:
+  phase: "discovery"  # discovery | research | implementation | validation
+  focus: ""           # What's currently being worked on
+  blockers: []        # What's preventing progress
+
+# Research briefs status
+briefs:
+  active: []
+    # - id: "RB-001"
+    #   title: "Brief title"
+    #   status: "created | in_progress | awaiting_consolidation | completed"
+    #   assigned_to: "external"  # claude | external (GPT/Gemini)
+  completed: []
+    # - id: "RB-001"
+    #   title: "Brief title"
+    #   completed: "{DATE}"
+    #   key_finding: "Summary"
+
+# Hypothesis summary
+hypotheses:
+  total: 0
+  validated: 0
+  invalidated: 0
+  uncertain: 0
+  highest_confidence: ""  # H-XXX at N%
+  lowest_confidence: ""   # H-XXX at N%
+
+# Knowledge accumulation
+knowledge:
+  patterns_discovered: 0
+  variants_discovered: 0
+  contexts_documented: 0
+  domains_documented: 0
+  edge_cases: 0
+
+# Next actions (prioritized)
+next_actions:
+  - ""
+  # - "Create RB-XXX for Y"
+  # - "Consolidate RB-XXX findings"
+  # - "Run experiment EXP-XXX"
+
+# Notes for next session
+notes: ""
