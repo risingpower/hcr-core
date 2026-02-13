@@ -103,7 +103,7 @@ Full details: `docs/research/hypotheses.md`
 | RB-001 | Prior art survey | **Complete** (3/4 sources — Gemini pending) |
 | RB-002 | Theoretical basis: elimination vs similarity | **Complete** (3/4 sources — Gemini unavailable) |
 | RB-003 | Scoring mechanics | **Complete** (3/4 sources — cascade architecture confirmed) |
-| RB-004 | Tree construction | **Next** (summary quality is #1 upstream factor per RB-003) |
+| RB-004 | Tree construction | **Scaffolded** — prompt ready, awaiting source responses |
 | RB-005 | Failure modes | Pending RB-003/004 |
 | RB-006 | Benchmark design | Pending RB-005 |
 
