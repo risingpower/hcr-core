@@ -86,7 +86,7 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 
 | ID | Statement | Confidence | Key Test |
 |----|-----------|------------|----------|
-| **H1a** | Under hard token budgets (<400 tokens), hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity with unconstrained tokens | 65% | RB-006 benchmark |
+| **H1a** | Hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity while using fewer tokens (design target: 400 tokens, adaptive not hard-capped) | 65% | RB-006 benchmark |
 | **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 80% | RB-006 benchmark |
 | **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
 
@@ -136,7 +136,7 @@ Templates: `docs/research/briefs/_template-*.md`
 3. **Dual-path retrieval:** beam-search traversal AND collapsed-tree retrieval run in parallel; return higher-confidence result (RB-005: collapsed-tree promoted to co-primary, not fallback)
 4. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
 5. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) with retry/cache/fallback for unavailability (RB-005 design change) — data stays where it lives
-6. Target: **under 400 tokens** retrieved context (budget-impossible queries → multi-turn agentic decomposition by Su)
+6. Target: **400 tokens as design aspiration, not hard limit.** Architecture optimises for 400; actual budget is adaptive per query. Success metric: "fraction of queries answerable under 400 tokens" (should grow as routing improves). Budget-impossible queries → multi-turn agentic decomposition by Su.
 
 ### Maintenance
 - Incremental insertion: route new leaves via scoring cascade to best-matching cluster(s)

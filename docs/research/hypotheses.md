@@ -28,7 +28,7 @@ Track beliefs, confidence levels, and validation status.
 **Last Updated:** 2026-02-13
 
 **Statement:**
-Under hard token budgets (<400 tokens), hierarchical coarse-to-fine retrieval achieves equivalent or better answer accuracy than flat similarity retrieval with unconstrained token spend over the same corpus.
+Hierarchical coarse-to-fine retrieval achieves equivalent or better answer accuracy than flat similarity retrieval while using fewer tokens. Design target: 400 tokens (aspiration, not hard limit — budget is adaptive per query type; the metric is "fraction of queries answerable under 400 tokens").
 
 **Evidence For:**
 - RB-001: Prior art shows hierarchical systems (RAPTOR, LATTICE) outperform flat RAG by 2-20pp on complex tasks
@@ -53,6 +53,7 @@ Under hard token budgets (<400 tokens), hierarchical coarse-to-fine retrieval ac
 - 2026-02-13: Created at 65%. Split from original H1 after RB-002 theoretical analysis. Prior art supports hierarchy advantage; token budget constraint is novel and untested.
 - 2026-02-13: RB-004 adds federated search evidence (CORI: effective routing from partial representations). No confidence change — RB-006 benchmark needed to test token budget claim directly.
 - 2026-02-13: RB-005 failure analysis shows 400-token constraint creates a hard impossibility class (~5–20% of queries: aggregation, exhaustive listing, temporal diffs). H1a should be scoped to "single-branch and entity-spanning queries" (~75% of workload) where token efficiency is achievable. No confidence change — scoping, not disconfirmation.
+- 2026-02-13: 400 tokens reframed from hard limit to design aspiration. Architecture designs for 400 but adapts per query. Success metric becomes "fraction answerable under 400 tokens" rather than pass/fail. RB-006 should benchmark at multiple budget levels (200, 400, 800, 1200) to find the accuracy/budget curve.
 
 ---
 
