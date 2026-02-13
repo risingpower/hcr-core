@@ -90,7 +90,7 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 | **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 80% | RB-006 benchmark |
 | **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
 
-Both scoring feasibility (RB-003) and construction feasibility (RB-004) now confirmed. Remaining uncertainty is empirical — RB-005 (failure modes) and RB-006 (benchmark) are the final gates.
+Scoring feasibility (RB-003), construction feasibility (RB-004), and failure mode analysis (RB-005) now confirmed. No showstopper identified. Remaining uncertainty is empirical — RB-006 (benchmark) is the final gate before go/no-go on Phase 1.
 
 Full details: `docs/research/hypotheses.md`
 
@@ -104,8 +104,8 @@ Full details: `docs/research/hypotheses.md`
 | RB-002 | Theoretical basis: elimination vs similarity | **Complete** (3/4 sources — Gemini unavailable) |
 | RB-003 | Scoring mechanics | **Complete** (3/4 sources — cascade architecture confirmed) |
 | RB-004 | Tree construction | **Complete** (3/4 sources — convergent construction recipe confirmed) |
-| RB-005 | Failure modes | **Next** — cross-branch queries remain #1 structural risk |
-| RB-006 | Benchmark design | Pending RB-005 |
+| RB-005 | Failure modes | **Complete** (3/4 sources — no showstopper, 10–20% expected failure rate) |
+| RB-006 | Benchmark design | **Next** — final brief before go/no-go |
 
 After RB-006: **Go/no-go decision** on Phase 1.
 
@@ -130,12 +130,13 @@ Templates: `docs/research/briefs/_template-*.md`
 5. **Represent** summaries as: dense embedding + ColBERT-style multi-vector (8–16 per node) + BM25 index over key terms
 6. **Cross-link** entity index across branches for cross-branch query support
 
-### Query-Time Traversal (RB-002, RB-003)
+### Query-Time Traversal (RB-002, RB-003, RB-005)
 1. Query enters at root. **Per-level cascade:** hybrid BM25+dense pre-filter (all children) → top-3 → cross-encoder rerank → top-1–2
-2. **Path-relevance EMA** smooths scores across depth; beam search (k=3–5) over frontier
-3. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
-4. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) — data stays where it lives
-5. Target: **under 400 tokens** retrieved context
+2. **Path-relevance EMA** smooths scores across depth; beam search (k=3–5) over frontier with **diversity enforcement** (MMR-style penalty against beams exploring same branch — RB-005 design change)
+3. **Dual-path retrieval:** beam-search traversal AND collapsed-tree retrieval run in parallel; return higher-confidence result (RB-005: collapsed-tree promoted to co-primary, not fallback)
+4. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
+5. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) with retry/cache/fallback for unavailability (RB-005 design change) — data stays where it lives
+6. Target: **under 400 tokens** retrieved context (budget-impossible queries → multi-turn agentic decomposition by Su)
 
 ### Maintenance
 - Incremental insertion: route new leaves via scoring cascade to best-matching cluster(s)
@@ -197,7 +198,8 @@ tests/                           # Test suite (Phase 1+)
 - **RESOLVED (RB-004):** ~~How is the tree constructed and maintained?~~ — Bisecting k-means backbone (d=2–3, b∈[6,15]), PERCH/GRINCH-style local repairs, periodic full rebuild at 20–30% new content threshold.
 - **OPEN (RB-004 gap):** Do contrastive summaries ("covers X, NOT Y") actually improve per-level routing accuracy vs generic summaries? No empirical evidence exists. Highest-value experiment for Phase 1.
 - **OPEN (RB-004 gap):** No routing-specific tree quality metric exists in the literature. Per-level routing accuracy, sibling distinctiveness, entity coverage proposed but unvalidated. HCR can fill this gap.
-- **CRITICAL (RB-005):** Where does this approach break? Cross-branch queries remain #1 structural risk. What fraction of real queries in Su's domain are cross-branch? What is the recall floor under beam search (k=3, d=2)?
+- **RESOLVED (RB-005):** ~~Where does this approach break?~~ — 26 failure modes identified. No showstopper. 10–20% expected failure rate. Top residual risks: DPI information loss (#1), budget impossibility for aggregation, beam collapse. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type.
+- **CRITICAL (RB-006):** What benchmark validates the architecture? Must include per-level routing accuracy, cross-branch sub-type coverage, beam vs collapsed comparison, budget-impossible detection.
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
 
 ## Constraints

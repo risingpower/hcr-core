@@ -52,6 +52,7 @@ Under hard token budgets (<400 tokens), hierarchical coarse-to-fine retrieval ac
 **History:**
 - 2026-02-13: Created at 65%. Split from original H1 after RB-002 theoretical analysis. Prior art supports hierarchy advantage; token budget constraint is novel and untested.
 - 2026-02-13: RB-004 adds federated search evidence (CORI: effective routing from partial representations). No confidence change — RB-006 benchmark needed to test token budget claim directly.
+- 2026-02-13: RB-005 failure analysis shows 400-token constraint creates a hard impossibility class (~5–20% of queries: aggregation, exhaustive listing, temporal diffs). H1a should be scoped to "single-branch and entity-spanning queries" (~75% of workload) where token efficiency is achievable. No confidence change — scoping, not disconfirmation.
 
 ---
 
@@ -89,6 +90,7 @@ Coarse elimination (hierarchy-guided routing) combined with fine similarity sear
 **History:**
 - 2026-02-13: Created at 75%. Strongest theoretical support of the three sub-hypotheses. Three-source consensus from RB-002.
 - 2026-02-13: Updated to 80%. RB-004 provides three-source construction consensus directly supporting the hybrid architecture. Top-down divisive clustering + beam search IS the hybrid approach. Selective search from federated search literature is a proven analog. Both validation gates (RB-003 scoring, RB-004 construction) now confirmed — remaining uncertainty is purely empirical (RB-006).
+- 2026-02-13: RB-005 failure analysis reinforces — all three sources confirm neither pure hierarchy nor pure flat retrieval is optimal. RAPTOR collapsed-tree evidence promotes collapsed retrieval to co-primary path alongside beam-search traversal. No confidence change — H1b is already well-supported.
 
 ---
 
@@ -130,6 +132,7 @@ Per-level scoring quality is the primary determinant of hierarchical retrieval q
 - 2026-02-13: Created at 70%. Mathematically grounded via RB-002. Feasibility of admissible scoring is the open question — RB-003 will address this directly.
 - 2026-02-13: Updated to 75%. RB-003 confirms (1-ε)^d mechanism and demonstrates feasible cascade architecture achieving ε ≈ 0.01–0.02. Strict admissibility ruled out; probabilistic ε control is the path. Key nuance: "scoring quality" = full system (summaries + cascade + calibration + beam), not one function.
 - 2026-02-13: RB-004 adds construction-side evidence. Routing summaries (structured, contrastive, entity-preserving) are the upstream enabler for low ε. Also adds hallucination risk as a new "evidence against" factor. No confidence change — H1c is about scoring feasibility (already confirmed by RB-003); construction quality supports but doesn't independently change the scoring claim.
+- 2026-02-13: RB-005 failure analysis partially challenges the mechanism. Entity cross-link quality is at least as important as per-level scoring quality for the dominant query type (entity-spanning, 15–25% of queries; entity-centric overall: 40–55%). Scoring quality matters most for thematic routing; entity cross-links matter most for entity-centric routing. Both are primary determinants for different query classes. No confidence change, but the "primary determinant" statement needs broadening: it's "per-level scoring quality AND entity cross-link quality" depending on query type.
 
 ---
 

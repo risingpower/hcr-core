@@ -10,17 +10,17 @@ last_session: "2026-02-13"
 # Current focus
 current:
   phase: "research"  # discovery | research | implementation | validation
-  focus: "RB-004 complete. Convergent construction recipe: top-down divisive clustering + LLM contrastive summaries + soft assignment + federated search for external pointers. H1b updated to 80%. RB-005 (failure modes) is next — cross-branch queries remain #1 structural risk."
+  focus: "RB-005 complete. Comprehensive failure mode analysis: 26 failure modes identified, 10-20% expected overall failure rate, no showstopper. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. RB-006 (benchmark design) is next — final brief before go/no-go."
   blockers: []
 
 # Research briefs status
 briefs:
   active:
-    - id: "RB-005"
-      title: "Failure modes"
+    - id: "RB-006"
+      title: "Benchmark design"
       status: "pending"
       assigned_to: "unassigned"
-      notes: "Cross-branch queries confirmed as #1 structural risk by RB-001, RB-002, and RB-004. Need to quantify: what fraction of real queries in Su's target domain are cross-branch? What is the recall floor under beam search (k=3, d=2) with the five-layer defense? What other failure modes exist?"
+      notes: "Final brief before go/no-go. Must include: per-level routing accuracy as first-class metric, cross-branch sub-type coverage, beam-search vs collapsed-tree comparison, budget-impossible query detection, entity cross-link quality metrics."
   completed:
     - id: "RB-001"
       title: "Prior art survey"
@@ -38,6 +38,10 @@ briefs:
       title: "Tree construction"
       completed: "2026-02-13"
       key_finding: "Three-source convergence on construction recipe: top-down divisive clustering (bisecting k-means, d=2–3, b∈[6,15]) + LLM contrastive routing summaries + soft assignment (1–3 parents per leaf). Routing summaries are a distinct artifact class: {theme, includes, excludes, key_entities, key_terms}. Cross-branch defense requires five layers (decomposition, soft assignment, entity cross-links, beam search, collapsed fallback). Federated search (CORI, ReDDE) solves external pointer leaves. No routing-specific tree quality metric exists — genuine research gap. H1b → 80%."
+    - id: "RB-005"
+      title: "Failure modes"
+      completed: "2026-02-13"
+      key_finding: "No architectural showstopper. 26 failure modes identified across all pipeline stages. Overall expected failure rate: 10–20%. Top residual risks: (1) DPI information loss for detail queries, (2) budget impossibility for aggregation/listing queries, (3) beam collapse without diversity enforcement. Three design changes needed: beam diversity, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type (entity-centric). Transition period (small corpus) is highest-risk deployment phase."
 
 # Hypothesis summary
 hypotheses:
@@ -48,7 +52,7 @@ hypotheses:
   retired: 1  # Original H1
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "H1b updated to 80% after RB-004 confirmed construction feasibility — three sources independently recommend the hybrid architecture (top-down routing + fine similarity). Both scoring (RB-003) and construction (RB-004) validation gates passed. Remaining uncertainty is empirical (RB-005 failure modes, RB-006 benchmark)."
+  notes: "RB-005 failure analysis reinforces H1b (hybrid architecture confirmed by all three sources). H1c mechanism broadened — entity cross-link quality is at least as important as per-level scoring quality for the dominant query type (entity-spanning). H1a scoped by budget impossibility class: 400-token constraint creates ~5-20% structurally unanswerable queries. No confidence changes — RB-006 needed for empirical validation."
 
 # Knowledge accumulation
 knowledge:
@@ -60,11 +64,11 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Scaffold and write RB-005 prompt (failure modes — cross-branch queries as #1 risk, other failure modes)"
-  - "JC runs RB-005 prompt across sources"
-  - "Consolidate RB-005 responses"
-  - "RB-006 (benchmark design) — final brief before go/no-go"
-  - "Add Gemini responses to RB-001/RB-002/RB-003/RB-004 if/when available"
+  - "Scaffold and write RB-006 prompt (benchmark design — final brief before go/no-go)"
+  - "JC runs RB-006 prompt across sources"
+  - "Consolidate RB-006 responses"
+  - "Go/no-go decision on Phase 1"
+  - "Add Gemini responses to RB-001/RB-002/RB-003/RB-004/RB-005 if/when available"
 
 # Notes for next session
-notes: "RB-004 consolidation complete. Exceptionally strong three-source convergence on construction recipe. Key insight: summary quality and traversal strategy matter more than tree topology — invest in routing summaries and beam search before fine-tuning clustering. Two genuine research gaps identified: (1) no empirical evidence that contrastive summaries improve routing, (2) no routing-specific tree quality metric. Both are high-value experiments for Phase 1. New systems surfaced: ArchRAG (+10% vs GraphRAG, 250× fewer tokens), PropRAG (94% Recall@5 via proposition decomposition), GRINCH (incremental hierarchical clustering). Federated search (CORI, ReDDE, selective search) provides proven framework for external pointer leaves."
+notes: "RB-005 consolidation complete. Three-source consensus: no showstopper, 10-20% overall failure rate, bounded and diagnosable. Key new insights: (1) token-budget impossibility is orthogonal to routing quality — aggregation/listing queries cannot be answered in 400 tokens regardless of retrieval, (2) entity cross-links are more critical than routing summaries for the dominant query type (entity-centric, 40-55% of enterprise queries), (3) collapsed-tree should be co-primary not fallback (RAPTOR evidence), (4) beam collapse is a design gap needing diversity enforcement. Three design changes recommended before Phase 1: beam diversity, collapsed co-primary, external source handling. RB-006 is the final gate."
