@@ -63,8 +63,6 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Go/no-go decision: all evidence supports GO"
-  - "Update CLAUDE.md to reflect Phase 1 readiness"
   - "Scaffold Phase 1 project structure (benchmark as first deliverable)"
   - "Build corpus pipeline (GitLab handbook + EnronQA + synthetic injectors)"
   - "Implement flat+CE baseline first (it's the comparison target)"
