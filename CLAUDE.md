@@ -2,7 +2,7 @@
 
 Hierarchical Context Retrieval — coarse-to-fine retrieval for LLM systems. Minimum viable context: correct answer, fewest tokens.
 
-**This is R&D.** The concept is unproven. Validate before building.
+**This is R&D.** Phase 0 (research) complete. Phase 1 (core library + benchmark validation) is active.
 
 ## Git Workflow
 
@@ -71,12 +71,12 @@ Lead research assistant. JC steers, I lead execution. I recommend (defaulting to
 
 ## Current Phase
 
-**Phase 0: Research & Validation**
+**Phase 1: Core Library + Benchmark Validation**
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **0. Research & validation** | Validate hypothesis, prior art, scoring mechanics | **Current** |
-| **1. Core library** | Tree, traversal, scoring, pointer resolution | Next |
+| **0. Research & validation** | Validate hypothesis, prior art, scoring mechanics | **Complete** (6/6 briefs) |
+| **1. Core library** | Tree, traversal, scoring, pointer resolution, benchmark | **Current** |
 | **2. Integration layer** | Connectors for external data sources | Planned |
 | **3. Autonomous index manager** | Agent that maintains the tree | Planned |
 
@@ -90,7 +90,7 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 | **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 80% | RB-006 benchmark |
 | **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
 
-Scoring feasibility (RB-003), construction feasibility (RB-004), and failure mode analysis (RB-005) now confirmed. No showstopper identified. Remaining uncertainty is empirical — RB-006 (benchmark) is the final gate before go/no-go on Phase 1.
+Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode analysis (RB-005), and benchmark design (RB-006) all confirmed. No showstopper identified across six research briefs. Remaining uncertainty is empirical — Phase 1 benchmark will validate or invalidate all three hypotheses.
 
 Full details: `docs/research/hypotheses.md`
 
@@ -187,7 +187,7 @@ tests/                           # Test suite (Phase 1+)
 
 ## Decisions Made
 
-*None yet — Phase 0.*
+- **ADR-001 (pending):** Go/no-go on Phase 1 — decision is GO based on six research briefs with no showstoppers. Benchmark design convergent across 4 sources. First implementation deliverable: benchmark infrastructure.
 
 ## Open Questions
 
