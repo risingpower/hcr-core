@@ -91,9 +91,9 @@ Lead research assistant. JC steers, I lead execution. I recommend (defaulting to
 | Brief | Topic | Status |
 |-------|-------|--------|
 | RB-001 | Prior art survey | **Complete** (3/4 sources — Gemini pending) |
-| RB-002 | Theoretical basis: elimination vs similarity | **Next** |
-| RB-003 | Scoring mechanics | Pending RB-002 |
-| RB-004 | Tree construction | Pending RB-002 |
+| RB-002 | Theoretical basis: elimination vs similarity | **Complete** (3/4 sources — Gemini unavailable) |
+| RB-003 | Scoring mechanics | **Next** (elevated priority — exponential lever via (1-ε)^d) |
+| RB-004 | Tree construction | Pending RB-003 |
 | RB-005 | Failure modes | Pending RB-003/004 |
 | RB-006 | Benchmark design | Pending RB-005 |
 
@@ -164,12 +164,13 @@ tests/                           # Test suite (Phase 1+)
 
 ## Open Questions
 
-- **CRITICAL (from RB-001):** RAPTOR's collapsed tree (flat retrieval over enriched representations) outperforms strict tree traversal. Under what conditions does elimination beat enriched flat? (RB-002)
-- Does elimination-based retrieval have empirical support over similarity? (RB-001 partial answer: yes for complex tasks, but caveats. RB-002 to deepen.)
-- How should branches be scored? Embeddings, LLM-as-judge, hybrid? (RB-003)
-- How is the tree constructed and maintained? (RB-004)
-- Where does this approach break? Cross-branch queries identified as #1 failure mode. (RB-005)
-- **NEW (from RB-001):** LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Parallel traversal, hard token budget, external source pointers.)
+- **RESOLVED (RB-002):** ~~Under what conditions does elimination beat enriched flat?~~ — Strict elimination wins only under stringent conditions (strong clustering, admissible scoring, modest depth). Hybrid coarse-to-fine is theoretically superior as default.
+- **CRITICAL (from RB-002):** H1 needs reframing. "Elimination > similarity" is too blunt. Proposed: "Hierarchical coarse-to-fine retrieval with hard token budgets outperforms flat similarity retrieval for precision-critical, token-sensitive LLM systems."
+- **CRITICAL (from RB-002):** Scoring quality is the exponential lever — per-level accuracy drives (1-ε)^d. Can we achieve admissible bounds or calibrated scoring? (RB-003)
+- How should branches be scored? Embeddings, LLM-as-judge, hybrid, geometric bounds? (RB-003 — now highest priority)
+- How is the tree constructed and maintained? Shallow wide trees preferred over deep narrow. (RB-004)
+- Where does this approach break? Cross-branch queries confirmed as #1 failure mode by theory. (RB-005)
+- LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
 
 ## Constraints
 

@@ -10,22 +10,26 @@ last_session: "2026-02-13"
 # Current focus
 current:
   phase: "research"  # discovery | research | implementation | validation
-  focus: "RB-001 consolidation complete. Ready for RB-002."
+  focus: "RB-002 consolidation complete. Theoretical findings challenge strict elimination — hybrid coarse-to-fine approach recommended. H1 reframing needed. RB-003 is next priority."
   blockers: []
 
 # Research briefs status
 briefs:
   active:
-    - id: "RB-002"
-      title: "Theoretical basis: elimination vs similarity"
-      status: "created"
-      assigned_to: "external"
-      notes: "Prompt written. Awaiting source responses. Central question: under what conditions does strict top-down elimination outperform enriched flat retrieval?"
+    - id: "RB-003"
+      title: "Scoring mechanics"
+      status: "pending"
+      assigned_to: "unassigned"
+      notes: "Elevated to highest priority by RB-002 findings. Per-level accuracy is the exponential lever in (1-ε)^d. Investigate admissible bounds, calibration, geometric scoring."
   completed:
     - id: "RB-001"
       title: "Prior art survey"
       completed: "2026-02-13"
       key_finding: "12+ systems in the space since 2024. Hierarchical retrieval outperforms flat RAG on complex tasks (2-20pp gains). LATTICE is closest to HCR. No system targets hard token budgets. RAPTOR collapsed-tree result challenges strict top-down traversal."
+    - id: "RB-002"
+      title: "Theoretical basis: elimination vs similarity"
+      completed: "2026-02-13"
+      key_finding: "Strict top-down elimination is theoretically fragile — error compounds as (1-ε)^d. RAPTOR collapsed-tree result is structurally predicted, not anomalous. Hybrid coarse-to-fine (shallow elimination + flat search within survivors) is theoretically optimal. H1 needs reframing from 'elimination > similarity' to 'hierarchical coarse-to-fine with token budgets > flat retrieval'."
 
 # Hypothesis summary
 hypotheses:
@@ -33,8 +37,9 @@ hypotheses:
   validated: 0
   invalidated: 0
   uncertain: 1
-  highest_confidence: "H1 at 65%"  # Supported by prior art but RAPTOR collapsed-tree result is counter-evidence
-  lowest_confidence: "H1 at 65%"
+  highest_confidence: "H1 at 55% (strict elimination) / 70% (hybrid coarse-to-fine reframing)"
+  lowest_confidence: "H1 at 55%"
+  notes: "RB-002 theoretical analysis weakens confidence in strict elimination but strengthens confidence in hybrid approach. H1 reframing recommended."
 
 # Knowledge accumulation
 knowledge:
@@ -46,10 +51,10 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Scaffold and write RB-002 prompt (theoretical basis: elimination vs similarity)"
-  - "Address RAPTOR collapsed-tree challenge directly in RB-002"
-  - "Update hypotheses.md with H1 confidence at 65%"
-  - "Add Gemini response to RB-001 if/when available"
+  - "Discuss H1 reframing with JC — 'hierarchical coarse-to-fine with hard token budgets' vs original 'elimination > similarity'"
+  - "Scaffold and write RB-003 prompt (scoring mechanics — the exponential lever)"
+  - "Update hypotheses.md with split confidence (strict elimination vs hybrid)"
+  - "Add Gemini response to RB-001/RB-002 if/when available"
 
 # Notes for next session
-notes: "RB-001 consolidation complete with 3/4 sources. Key finding: the RAPTOR collapsed-tree result is the strongest counter-evidence to HCR's strictly top-down design. RB-002 must directly address when elimination beats enriched flat retrieval. LATTICE (UT Austin) is the primary competitor — closest system to HCR's philosophy."
+notes: "RB-002 consolidation is the most consequential finding so far. The theoretical consensus across 3 independent sources is unambiguous: strict elimination is fragile, hybrid coarse-to-fine is the theoretically grounded approach. This doesn't kill HCR — it sharpens it. HCR's differentiators (hierarchy for enrichment + coarse routing, hard token budget, external source pointers) remain valid and novel. But the retrieval strategy should be 'coarse elimination + fine similarity', not 'strict elimination top to bottom'. Key design implication: beam width > tree depth. Scoring quality has exponential returns via (1-ε)^d."
