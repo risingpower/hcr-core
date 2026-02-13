@@ -103,7 +103,7 @@ Full details: `docs/research/hypotheses.md`
 | RB-001 | Prior art survey | **Complete** (3/4 sources — Gemini pending) |
 | RB-002 | Theoretical basis: elimination vs similarity | **Complete** (3/4 sources — Gemini unavailable) |
 | RB-003 | Scoring mechanics | **Complete** (3/4 sources — cascade architecture confirmed) |
-| RB-004 | Tree construction | **Complete** (3/4 sources — convergent construction recipe confirmed) |
+| RB-004 | Tree construction | **Complete** (4/4 sources — convergent construction recipe confirmed) |
 | RB-005 | Failure modes | **Complete** (3/4 sources — no showstopper, 10–20% expected failure rate) |
 | RB-006 | Benchmark design | **Next** — final brief before go/no-go |
 

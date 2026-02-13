@@ -37,7 +37,7 @@ briefs:
     - id: "RB-004"
       title: "Tree construction"
       completed: "2026-02-13"
-      key_finding: "Three-source convergence on construction recipe: top-down divisive clustering (bisecting k-means, d=2–3, b∈[6,15]) + LLM contrastive routing summaries + soft assignment (1–3 parents per leaf). Routing summaries are a distinct artifact class: {theme, includes, excludes, key_entities, key_terms}. Cross-branch defense requires five layers (decomposition, soft assignment, entity cross-links, beam search, collapsed fallback). Federated search (CORI, ReDDE) solves external pointer leaves. No routing-specific tree quality metric exists — genuine research gap. H1b → 80%."
+      key_finding: "Four-source convergence on construction recipe: top-down divisive clustering (bisecting k-means, d=2–3, b∈[6,15]) + LLM contrastive routing summaries + soft assignment (1–3 parents per leaf). Routing summaries are a distinct artifact class: {theme, includes, excludes, key_entities, key_terms}. Gemini adds Q-STRUM Debate for adversarial contrastive generation, depth-variable summary formatting (contrastive prose at L1, keyword arrays + multi-vector at L2), Schema Entropy Bound and Sibling Distinctiveness (BM25 softmax) as concrete tree quality metrics, and EraRAG LSH hyperplanes as alternative partitioning with deterministic incremental maintenance. Cross-branch defense requires five layers. No routing-specific tree quality metric in literature — genuine research gap. H1b → 80%."
     - id: "RB-005"
       title: "Failure modes"
       completed: "2026-02-13"
