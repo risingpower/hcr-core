@@ -10,17 +10,17 @@ last_session: "2026-02-13"
 # Current focus
 current:
   phase: "research"  # discovery | research | implementation | validation
-  focus: "H1 reframed into H1a/H1b/H1c (token efficiency, hybrid superiority, scoring lever). RB-003 scoring mechanics is next — gates H1c directly."
+  focus: "RB-003 complete. Cascade scoring architecture confirmed (hybrid pre-filter → cross-encoder, ε ≈ 0.01–0.02). H1c updated to 75%. RB-004 tree construction is next — summary quality is #1 upstream factor."
   blockers: []
 
 # Research briefs status
 briefs:
   active:
-    - id: "RB-003"
-      title: "Scoring mechanics"
-      status: "prompt_ready"
-      assigned_to: "JC (run across sources)"
-      notes: "Prompt written. Covers: scoring landscape, admissibility, cross-level calibration, cascaded scoring, LATTICE analysis, information density, practical feasibility targets."
+    - id: "RB-004"
+      title: "Tree construction"
+      status: "pending"
+      assigned_to: "unassigned"
+      notes: "Elevated by RB-003 finding: summary quality is #1 upstream factor for scoring accuracy. How to build trees with well-differentiated, routing-friendly summaries? Shallow+wide confirmed."
   completed:
     - id: "RB-001"
       title: "Prior art survey"
@@ -30,6 +30,10 @@ briefs:
       title: "Theoretical basis: elimination vs similarity"
       completed: "2026-02-13"
       key_finding: "Strict top-down elimination is theoretically fragile — error compounds as (1-ε)^d. RAPTOR collapsed-tree result is structurally predicted, not anomalous. Hybrid coarse-to-fine (shallow elimination + flat search within survivors) is theoretically optimal. H1 needs reframing from 'elimination > similarity' to 'hierarchical coarse-to-fine with token budgets > flat retrieval'."
+    - id: "RB-003"
+      title: "Scoring mechanics"
+      completed: "2026-02-13"
+      key_finding: "Cascade architecture (hybrid BM25+dense → cross-encoder) achieves ε ≈ 0.01–0.02 per level at ~40–80ms. Strict admissibility impossible for semantic relevance. Path-relevance EMA is higher leverage than per-node scoring. Summary quality is #1 upstream factor. AdaGReS submodular knapsack for token-budget selection. H1c → 75%."
 
 # Hypothesis summary
 hypotheses:
@@ -38,9 +42,9 @@ hypotheses:
   invalidated: 0
   uncertain: 3
   retired: 1  # Original H1
-  highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 75%"
+  highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 75%, H1c (scoring lever) at 75%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "Original H1 retired and split into H1a (65%), H1b (75%), H1c (70%). Each independently testable. H1c (scoring lever) is the immediate research priority via RB-003."
+  notes: "H1c updated to 75% after RB-003 confirmed cascade feasibility and (1-ε)^d mechanism. H1a (65%) and H1b (75%) unchanged. Next: RB-004 (tree construction) to address summary quality as the #1 upstream factor."
 
 # Knowledge accumulation
 knowledge:
@@ -52,10 +56,10 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Scaffold and write RB-003 prompt (scoring mechanics — the exponential lever for H1c)"
-  - "JC runs RB-003 prompt across sources"
-  - "Consolidate RB-003 responses"
-  - "Add Gemini response to RB-001/RB-002 if/when available"
+  - "Scaffold and write RB-004 prompt (tree construction — summary quality as #1 upstream factor)"
+  - "JC runs RB-004 prompt across sources"
+  - "Consolidate RB-004 responses"
+  - "Add Gemini responses to RB-001/RB-002/RB-003 if/when available"
 
 # Notes for next session
-notes: "H1 reframing complete. Original hypothesis retired, replaced by H1a (token efficiency, 65%), H1b (hybrid superiority, 75%), H1c (scoring lever, 70%). This is a refinement, not a pivot — core architecture remains valid. RB-003 is now the critical path: scoring feasibility gates H1c and informs the other two. Design implication locked in: beam width > tree depth, coarse routing + fine similarity."
+notes: "RB-003 consolidation complete. Three-source consensus on cascade scoring architecture: hybrid BM25+dense pre-filter → cross-encoder rerank, ε ≈ 0.01–0.02 per level. Key surprise: path-relevance EMA (LATTICE ablation) is higher leverage than per-node scoring sophistication. Strict admissibility ruled out for semantic relevance — design for probabilistic ε control. Summary quality confirmed as #1 upstream factor, making RB-004 (tree construction) the critical next brief. AdaGReS submodular knapsack framing for token-budget selection. H1c updated to 75%."

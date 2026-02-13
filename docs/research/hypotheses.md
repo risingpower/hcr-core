@@ -12,7 +12,7 @@ Track beliefs, confidence levels, and validation status.
 |--------|-------|
 | Validated | 0 |
 | Invalidated | 0 |
-| Uncertain | 3 |
+| Uncertain | 3 (H1a: 65%, H1b: 75%, H1c: 75%) |
 | Retired | 1 |
 | **Total Active** | **3** |
 
@@ -89,7 +89,7 @@ Coarse elimination (hierarchy-guided routing) combined with fine similarity sear
 ### H1c: Scoring quality as exponential lever
 
 **Status:** uncertain
-**Confidence:** 70%
+**Confidence:** 75%
 **Created:** 2026-02-13
 **Last Updated:** 2026-02-13
 
@@ -100,11 +100,14 @@ Per-level scoring quality is the primary determinant of hierarchical retrieval q
 - RB-002: All three sources identify (1-ε)^d as the governing equation — small improvements in ε yield exponential gains
 - RB-002: This is mathematically derived, not empirical speculation — the compounding is structural
 - RB-001: LATTICE uses LLM-as-judge scoring and achieves strong results, suggesting high-quality scoring is feasible
+- RB-003: Cascade architecture (hybrid pre-filter → cross-encoder) achieves ε ≈ 0.01–0.02 per level at ~40–80ms latency — feasible and within target
+- RB-003: LATTICE ablations confirm scoring calibration has large impact on end-to-end performance; path-relevance EMA is the highest-leverage component
 
 **Evidence Against:**
 - RB-002: "Admissible" scoring (never incorrectly prune the correct branch) may be unrealistically strict in practice
 - RB-001: No system in the prior art reports achieving formally admissible scoring bounds
-- Cost concern: high-quality scoring (e.g., LLM-as-judge) at every node may negate token savings from hierarchy
+- RB-003: Strict admissibility confirmed impossible for semantic relevance — only achievable for embedding-distance proximity, not answer relevance
+- RB-003: ε is dominated by summary quality and query distribution, not scoring method alone — "scoring quality" is a system property, not a function property
 
 **Implications:**
 - If true: Scoring is where R&D effort should concentrate — it's the highest-leverage component
@@ -117,6 +120,7 @@ Per-level scoring quality is the primary determinant of hierarchical retrieval q
 
 **History:**
 - 2026-02-13: Created at 70%. Mathematically grounded via RB-002. Feasibility of admissible scoring is the open question — RB-003 will address this directly.
+- 2026-02-13: Updated to 75%. RB-003 confirms (1-ε)^d mechanism and demonstrates feasible cascade architecture achieving ε ≈ 0.01–0.02. Strict admissibility ruled out; probabilistic ε control is the path. Key nuance: "scoring quality" = full system (summaries + cascade + calibration + beam), not one function.
 
 ---
 

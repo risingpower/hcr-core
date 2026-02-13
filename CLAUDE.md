@@ -88,7 +88,7 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 |----|-----------|------------|----------|
 | **H1a** | Under hard token budgets (<400 tokens), hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity with unconstrained tokens | 65% | RB-006 benchmark |
 | **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 75% | RB-006 benchmark |
-| **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 70% | **RB-003** (next) |
+| **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
 
 H1c is the immediate research priority — scoring feasibility gates the other two.
 
@@ -102,8 +102,8 @@ Full details: `docs/research/hypotheses.md`
 |-------|-------|--------|
 | RB-001 | Prior art survey | **Complete** (3/4 sources — Gemini pending) |
 | RB-002 | Theoretical basis: elimination vs similarity | **Complete** (3/4 sources — Gemini unavailable) |
-| RB-003 | Scoring mechanics | **Next** (elevated priority — exponential lever via (1-ε)^d) |
-| RB-004 | Tree construction | Pending RB-003 |
+| RB-003 | Scoring mechanics | **Complete** (3/4 sources — cascade architecture confirmed) |
+| RB-004 | Tree construction | **Next** (summary quality is #1 upstream factor per RB-003) |
 | RB-005 | Failure modes | Pending RB-003/004 |
 | RB-006 | Benchmark design | Pending RB-005 |
 
@@ -123,9 +123,9 @@ Templates: `docs/research/briefs/_template-*.md`
 ## Current Design (Unvalidated)
 
 1. Data **mapped** into hierarchical index tree — nodes hold descriptions + pointers to children or leaf sources
-2. Query enters at root. **Score all branches** at current level (scoring method TBD — RB-003)
-3. **Coarse routing:** top levels eliminate broad irrelevance via hierarchy (beam width > tree depth)
-4. **Fine retrieval:** within surviving branches, similarity search selects final context
+2. Query enters at root. **Per-level cascade:** hybrid BM25+dense pre-filter (all children) → top-3 → cross-encoder rerank → top-1–2
+3. **Path-relevance EMA** smooths scores across depth; beam search over frontier
+4. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
 5. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) — data stays where it lives
 6. Target: **under 400 tokens** retrieved context
 
@@ -178,8 +178,8 @@ tests/                           # Test suite (Phase 1+)
 
 - **RESOLVED (RB-002):** ~~Under what conditions does elimination beat enriched flat?~~ — Strict elimination wins only under stringent conditions. Hybrid coarse-to-fine is theoretically superior.
 - **RESOLVED:** ~~H1 needs reframing~~ — Split into H1a/H1b/H1c (2026-02-13). See hypotheses.md.
-- **CRITICAL (H1c, RB-003):** Scoring quality is the exponential lever — per-level accuracy drives (1-ε)^d. Can we achieve admissible bounds or calibrated scoring?
-- How should branches be scored? Embeddings, LLM-as-judge, hybrid, geometric bounds? (RB-003 — highest priority)
+- **RESOLVED (RB-003):** ~~Scoring quality is the exponential lever~~ — Confirmed. Cascade architecture (hybrid pre-filter → cross-encoder) achieves ε ≈ 0.01–0.02. Strict admissibility impossible for semantic relevance; design for probabilistic ε control. Path-relevance EMA is higher leverage than per-node scoring.
+- **CRITICAL (RB-004):** Summary quality is the #1 upstream factor for scoring accuracy. How should trees be built to produce routing-friendly summaries?
 - How is the tree constructed and maintained? Shallow wide trees preferred over deep narrow. (RB-004)
 - Where does this approach break? Cross-branch queries confirmed as #1 failure mode by theory. (RB-005)
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
