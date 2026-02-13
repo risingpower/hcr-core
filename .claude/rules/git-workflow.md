@@ -7,34 +7,74 @@
 ```
 
 Examples:
-- `0123jc` - January 23rd, user jc
-- `0215ab` - February 15th, user ab
+- `0213jc` — February 13th, user jc
+- `0215ab` — February 15th, user ab
 
-## Daily Workflow
+## Commit Little and Often
 
-### Before Starting New Work
+Commit and push at every meaningful checkpoint — not just at session end. This is part of the process, not an afterthought.
 
-**Run `/au-plan` before implementing any feature or fix.**
+**Meaningful checkpoints include:**
+- Research brief created and scaffolded
+- Consolidation written
+- CLAUDE.md or rules updated
+- Any code written or modified
+- Hypothesis or state file updated
 
-This creates a detailed implementation plan and WAITS for your confirmation before any code changes.
+Don't accumulate. If work has been done, commit it.
 
-### Session Start (6-step process)
+## Session Start
 
-1. **Check git status** - Uncommitted changes? Commit/stash/discard
-2. **Check current branch**:
-   - On `main` → Create today's branch (e.g., `0123jc`)
-   - On yesterday's branch → Ask: continue or merge and start fresh?
-   - On today's branch → Continue working
-3. **Read CLAUDE.md** - Understand current plan
-4. **Pick next task** - Top unchecked "Must Have" item (or one assigned to me)
-5. **Confirm** - Tell user what working on, ask if correct
-6. **Run `/au-plan`** - Create implementation plan before coding
+When JC says "what's next" or starts a session:
 
-### Session End
+1. **Check git status** — uncommitted changes? Ask whether to commit, stash, or discard
+2. **Check current branch:**
+   - On `main` → pull latest, create today's branch (e.g., `0213jc`)
+   - On yesterday's branch → ask whether to continue or merge and start fresh
+   - On today's branch → continue working
+3. **Read CLAUDE.md** — understand current state, hypothesis status, phase
+4. **Read `docs/research/_state.yaml`** — check session state and blockers
+5. **Identify next action** — what's the next research brief, open question, or implementation task?
+6. **Confirm with JC** — state what I plan to work on, ask if correct
 
-1. **Commit and push** all changes
-2. **Summarize** what was done
-3. **Remind** to merge if ready, or note continuing tomorrow
+## Session End
+
+When JC says "done for today" or "wrap up":
+
+1. **Commit and push** all changes to branch
+2. **Update `docs/research/_state.yaml`** — record session state, progress, blockers
+3. **Update CLAUDE.md** if project status has changed
+4. **Summarise** what was done this session
+5. **State next steps** — what should the next session pick up
+
+## Commit Rules
+
+### Format
+```
+<type>: <description>
+
+<optional body>
+```
+
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+
+### CRITICAL: No Attribution
+
+**NEVER add "Co-Authored-By: Claude" to commit messages. Ever.**
+
+This is a universal rule across all repos.
+
+### Before Every Commit
+
+For **code changes:**
+1. Run type checker
+2. Remove debug statements
+3. Ensure changes match task scope
+
+For **docs/research changes:**
+1. Ensure CLAUDE.md reflects current state
+2. Check naming conventions are followed
+3. Verify file is in the correct location
 
 ## Post-Work Verification Protocol
 
@@ -53,23 +93,12 @@ After completing any of these, ask: *"I've completed [X]. Would you like me to r
 For smaller changes, verify inline without prompting:
 
 - Single file edits → Run type check silently, fix any errors
-- Component changes → Confirm no type errors before moving on
 - Config changes → Verify build still works
 
-### Always Before Commit
-Regardless of task size, always:
-
-1. Run type check
-2. Remove any debug statements you added
-3. Ensure changes match the task scope (no scope creep)
-
-### Skip Deep Testing When
+### Skip Deep Verification When
 - Documentation-only changes
-- Comment additions
-- Single-line fixes with obvious correctness
-- Styling/CSS-only changes
-
-**Principle:** Quality is built in, not bolted on. Employees steer, Claude ensures standards.
+- Research brief scaffolding
+- State file updates
 
 ## Context Management
 
@@ -101,54 +130,11 @@ Check context usage with `/context` when:
 - State files (`_state.yaml`, `CLAUDE.md`) are the real memory
 - No risk of compaction losing important nuances
 
-## Commit Rules
-
-### Format
-```
-<type>: <description>
-
-<optional body>
-```
-
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
-
-### CRITICAL: No Attribution
-
-**NEVER add "Co-Authored-By: Claude" to commit messages. Ever.**
-
-This is a universal rule across all repos.
-
-### Before Every Commit
-
-**Run `/au-review` to check for issues before committing.**
-
-1. Run `/au-review` - Code quality and security check
-2. Ensure `README.md` is up to date
-3. Ensure `CLAUDE.md` is up to date with any changes made
-4. Remove debug statements (console.log / print)
-5. Run type checker
-
 ## Pull Request Workflow
 
 When creating PRs:
-1. Analyze **full commit history** (not just latest commit)
+1. Analyse **full commit history** (not just latest commit)
 2. Use `git diff [base-branch]...HEAD` to see all changes
 3. Draft comprehensive PR summary
 4. Include test plan with TODOs
 5. Push with `-u` flag if new branch
-
-## Quick Commands
-
-```bash
-# Start of day
-git checkout main && git pull
-git checkout -b $(date +%m%d)jc
-
-# End of day
-git add -A && git commit -m "feat: [description]"
-git push -u origin $(git branch --show-current)
-
-# Check status
-git status
-git diff --name-only HEAD
-```
