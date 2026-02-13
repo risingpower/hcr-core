@@ -87,10 +87,10 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 | ID | Statement | Confidence | Key Test |
 |----|-----------|------------|----------|
 | **H1a** | Under hard token budgets (<400 tokens), hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity with unconstrained tokens | 65% | RB-006 benchmark |
-| **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 75% | RB-006 benchmark |
+| **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 80% | RB-006 benchmark |
 | **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
 
-H1c is the immediate research priority — scoring feasibility gates the other two.
+Both scoring feasibility (RB-003) and construction feasibility (RB-004) now confirmed. Remaining uncertainty is empirical — RB-005 (failure modes) and RB-006 (benchmark) are the final gates.
 
 Full details: `docs/research/hypotheses.md`
 
@@ -103,8 +103,8 @@ Full details: `docs/research/hypotheses.md`
 | RB-001 | Prior art survey | **Complete** (3/4 sources — Gemini pending) |
 | RB-002 | Theoretical basis: elimination vs similarity | **Complete** (3/4 sources — Gemini unavailable) |
 | RB-003 | Scoring mechanics | **Complete** (3/4 sources — cascade architecture confirmed) |
-| RB-004 | Tree construction | **Scaffolded** — prompt ready, awaiting source responses |
-| RB-005 | Failure modes | Pending RB-003/004 |
+| RB-004 | Tree construction | **Complete** (3/4 sources — convergent construction recipe confirmed) |
+| RB-005 | Failure modes | **Next** — cross-branch queries remain #1 structural risk |
 | RB-006 | Benchmark design | Pending RB-005 |
 
 After RB-006: **Go/no-go decision** on Phase 1.
@@ -122,14 +122,28 @@ Templates: `docs/research/briefs/_template-*.md`
 
 ## Current Design (Unvalidated)
 
-1. Data **mapped** into hierarchical index tree — nodes hold descriptions + pointers to children or leaf sources
-2. Query enters at root. **Per-level cascade:** hybrid BM25+dense pre-filter (all children) → top-3 → cross-encoder rerank → top-1–2
-3. **Path-relevance EMA** smooths scores across depth; beam search over frontier
-4. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
-5. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) — data stays where it lives
-6. Target: **under 400 tokens** retrieved context
+### Tree Construction (RB-004)
+1. **Decompose** multi-topic content into atomic semantic units before clustering
+2. **Partition** top-down via bisecting k-means in embedding space, constrained to d=2–3, b∈[6,15]
+3. **Soft assign** multi-topic leaves to 1–3 parents (cheap because leaves are pointers)
+4. **Summarise** each node with LLM — structured routing summaries: `{theme, includes, excludes, key_entities, key_terms}`
+5. **Represent** summaries as: dense embedding + ColBERT-style multi-vector (8–16 per node) + BM25 index over key terms
+6. **Cross-link** entity index across branches for cross-branch query support
 
-*Design note:* Traversal strategy shifted from strict elimination to coarse-to-fine hybrid after RB-002 theoretical analysis.
+### Query-Time Traversal (RB-002, RB-003)
+1. Query enters at root. **Per-level cascade:** hybrid BM25+dense pre-filter (all children) → top-3 → cross-encoder rerank → top-1–2
+2. **Path-relevance EMA** smooths scores across depth; beam search (k=3–5) over frontier
+3. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
+4. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) — data stays where it lives
+5. Target: **under 400 tokens** retrieved context
+
+### Maintenance
+- Incremental insertion: route new leaves via scoring cascade to best-matching cluster(s)
+- Local repair: split/merge when branch bounds exceeded or routing accuracy drops
+- Dirty-flag summary staleness: lazy regeneration prioritised by access frequency
+- Periodic rebuild: full reconstruction when 20–30% of subtree is new content
+
+*Cross-branch defense:* five layers — decomposition, soft assignment, entity cross-links, beam search (k=3–5), collapsed-tree fallback (emergency only).
 
 ## Tech Stack
 
@@ -179,9 +193,11 @@ tests/                           # Test suite (Phase 1+)
 - **RESOLVED (RB-002):** ~~Under what conditions does elimination beat enriched flat?~~ — Strict elimination wins only under stringent conditions. Hybrid coarse-to-fine is theoretically superior.
 - **RESOLVED:** ~~H1 needs reframing~~ — Split into H1a/H1b/H1c (2026-02-13). See hypotheses.md.
 - **RESOLVED (RB-003):** ~~Scoring quality is the exponential lever~~ — Confirmed. Cascade architecture (hybrid pre-filter → cross-encoder) achieves ε ≈ 0.01–0.02. Strict admissibility impossible for semantic relevance; design for probabilistic ε control. Path-relevance EMA is higher leverage than per-node scoring.
-- **CRITICAL (RB-004):** Summary quality is the #1 upstream factor for scoring accuracy. How should trees be built to produce routing-friendly summaries?
-- How is the tree constructed and maintained? Shallow wide trees preferred over deep narrow. (RB-004)
-- Where does this approach break? Cross-branch queries confirmed as #1 failure mode by theory. (RB-005)
+- **RESOLVED (RB-004):** ~~Summary quality is the #1 upstream factor. How should trees be built?~~ — Convergent recipe: top-down divisive clustering + LLM contrastive summaries + soft assignment. Structured routing summaries `{theme, includes, excludes, key_entities, key_terms}` are a distinct artifact class.
+- **RESOLVED (RB-004):** ~~How is the tree constructed and maintained?~~ — Bisecting k-means backbone (d=2–3, b∈[6,15]), PERCH/GRINCH-style local repairs, periodic full rebuild at 20–30% new content threshold.
+- **OPEN (RB-004 gap):** Do contrastive summaries ("covers X, NOT Y") actually improve per-level routing accuracy vs generic summaries? No empirical evidence exists. Highest-value experiment for Phase 1.
+- **OPEN (RB-004 gap):** No routing-specific tree quality metric exists in the literature. Per-level routing accuracy, sibling distinctiveness, entity coverage proposed but unvalidated. HCR can fill this gap.
+- **CRITICAL (RB-005):** Where does this approach break? Cross-branch queries remain #1 structural risk. What fraction of real queries in Su's domain are cross-branch? What is the recall floor under beam search (k=3, d=2)?
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
 
 ## Constraints

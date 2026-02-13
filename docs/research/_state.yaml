@@ -10,17 +10,17 @@ last_session: "2026-02-13"
 # Current focus
 current:
   phase: "research"  # discovery | research | implementation | validation
-  focus: "RB-003 complete. Cascade scoring architecture confirmed (hybrid pre-filter → cross-encoder, ε ≈ 0.01–0.02). H1c updated to 75%. RB-004 tree construction is next — summary quality is #1 upstream factor."
+  focus: "RB-004 complete. Convergent construction recipe: top-down divisive clustering + LLM contrastive summaries + soft assignment + federated search for external pointers. H1b updated to 80%. RB-005 (failure modes) is next — cross-branch queries remain #1 structural risk."
   blockers: []
 
 # Research briefs status
 briefs:
   active:
-    - id: "RB-004"
-      title: "Tree construction"
+    - id: "RB-005"
+      title: "Failure modes"
       status: "pending"
       assigned_to: "unassigned"
-      notes: "Elevated by RB-003 finding: summary quality is #1 upstream factor for scoring accuracy. How to build trees with well-differentiated, routing-friendly summaries? Shallow+wide confirmed."
+      notes: "Cross-branch queries confirmed as #1 structural risk by RB-001, RB-002, and RB-004. Need to quantify: what fraction of real queries in Su's target domain are cross-branch? What is the recall floor under beam search (k=3, d=2) with the five-layer defense? What other failure modes exist?"
   completed:
     - id: "RB-001"
       title: "Prior art survey"
@@ -34,6 +34,10 @@ briefs:
       title: "Scoring mechanics"
       completed: "2026-02-13"
       key_finding: "Cascade architecture (hybrid BM25+dense → cross-encoder) achieves ε ≈ 0.01–0.02 per level at ~40–80ms. Strict admissibility impossible for semantic relevance. Path-relevance EMA is higher leverage than per-node scoring. Summary quality is #1 upstream factor. AdaGReS submodular knapsack for token-budget selection. H1c → 75%."
+    - id: "RB-004"
+      title: "Tree construction"
+      completed: "2026-02-13"
+      key_finding: "Three-source convergence on construction recipe: top-down divisive clustering (bisecting k-means, d=2–3, b∈[6,15]) + LLM contrastive routing summaries + soft assignment (1–3 parents per leaf). Routing summaries are a distinct artifact class: {theme, includes, excludes, key_entities, key_terms}. Cross-branch defense requires five layers (decomposition, soft assignment, entity cross-links, beam search, collapsed fallback). Federated search (CORI, ReDDE) solves external pointer leaves. No routing-specific tree quality metric exists — genuine research gap. H1b → 80%."
 
 # Hypothesis summary
 hypotheses:
@@ -42,9 +46,9 @@ hypotheses:
   invalidated: 0
   uncertain: 3
   retired: 1  # Original H1
-  highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 75%, H1c (scoring lever) at 75%"
+  highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "H1c updated to 75% after RB-003 confirmed cascade feasibility and (1-ε)^d mechanism. H1a (65%) and H1b (75%) unchanged. Next: RB-004 (tree construction) to address summary quality as the #1 upstream factor."
+  notes: "H1b updated to 80% after RB-004 confirmed construction feasibility — three sources independently recommend the hybrid architecture (top-down routing + fine similarity). Both scoring (RB-003) and construction (RB-004) validation gates passed. Remaining uncertainty is empirical (RB-005 failure modes, RB-006 benchmark)."
 
 # Knowledge accumulation
 knowledge:
@@ -56,10 +60,11 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Scaffold and write RB-004 prompt (tree construction — summary quality as #1 upstream factor)"
-  - "JC runs RB-004 prompt across sources"
-  - "Consolidate RB-004 responses"
-  - "Add Gemini responses to RB-001/RB-002/RB-003 if/when available"
+  - "Scaffold and write RB-005 prompt (failure modes — cross-branch queries as #1 risk, other failure modes)"
+  - "JC runs RB-005 prompt across sources"
+  - "Consolidate RB-005 responses"
+  - "RB-006 (benchmark design) — final brief before go/no-go"
+  - "Add Gemini responses to RB-001/RB-002/RB-003/RB-004 if/when available"
 
 # Notes for next session
-notes: "RB-003 consolidation complete. Three-source consensus on cascade scoring architecture: hybrid BM25+dense pre-filter → cross-encoder rerank, ε ≈ 0.01–0.02 per level. Key surprise: path-relevance EMA (LATTICE ablation) is higher leverage than per-node scoring sophistication. Strict admissibility ruled out for semantic relevance — design for probabilistic ε control. Summary quality confirmed as #1 upstream factor, making RB-004 (tree construction) the critical next brief. AdaGReS submodular knapsack framing for token-budget selection. H1c updated to 75%."
+notes: "RB-004 consolidation complete. Exceptionally strong three-source convergence on construction recipe. Key insight: summary quality and traversal strategy matter more than tree topology — invest in routing summaries and beam search before fine-tuning clustering. Two genuine research gaps identified: (1) no empirical evidence that contrastive summaries improve routing, (2) no routing-specific tree quality metric. Both are high-value experiments for Phase 1. New systems surfaced: ArchRAG (+10% vs GraphRAG, 250× fewer tokens), PropRAG (94% Recall@5 via proposition decomposition), GRINCH (incremental hierarchical clustering). Federated search (CORI, ReDDE, selective search) provides proven framework for external pointer leaves."
