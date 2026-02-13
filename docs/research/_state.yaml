@@ -18,9 +18,9 @@ briefs:
   active:
     - id: "RB-003"
       title: "Scoring mechanics"
-      status: "pending"
-      assigned_to: "unassigned"
-      notes: "Elevated to highest priority by RB-002 findings. Per-level accuracy is the exponential lever in (1-ε)^d. Investigate admissible bounds, calibration, geometric scoring."
+      status: "prompt_ready"
+      assigned_to: "JC (run across sources)"
+      notes: "Prompt written. Covers: scoring landscape, admissibility, cross-level calibration, cascaded scoring, LATTICE analysis, information density, practical feasibility targets."
   completed:
     - id: "RB-001"
       title: "Prior art survey"
