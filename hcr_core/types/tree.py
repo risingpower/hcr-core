@@ -1,7 +1,8 @@
 """Tree data models: nodes, routing summaries, and the HCR tree."""
 
+from typing import Self
+
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing_extensions import Self
 
 
 class RoutingSummary(BaseModel):

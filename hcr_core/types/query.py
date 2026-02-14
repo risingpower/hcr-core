@@ -1,11 +1,11 @@
 """Query data models."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class QueryCategory(str, Enum):
+class QueryCategory(StrEnum):
     """Query type classification from RB-006."""
 
     SINGLE_BRANCH = "single_branch"
@@ -19,7 +19,7 @@ class QueryCategory(str, Enum):
     OOD = "ood"
 
 
-class DifficultyTier(str, Enum):
+class DifficultyTier(StrEnum):
     """Query difficulty for stratified evaluation."""
 
     EASY = "easy"
