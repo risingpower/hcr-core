@@ -1,0 +1,46 @@
+"""Query data models."""
+
+from enum import Enum
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class QueryCategory(str, Enum):
+    """Query type classification from RB-006."""
+
+    SINGLE_BRANCH = "single_branch"
+    ENTITY_SPANNING = "entity_spanning"
+    DPI = "dpi"
+    MULTI_HOP = "multi_hop"
+    COMPARATIVE = "comparative"
+    AGGREGATION = "aggregation"
+    TEMPORAL = "temporal"
+    AMBIGUOUS = "ambiguous"
+    OOD = "ood"
+
+
+class DifficultyTier(str, Enum):
+    """Query difficulty for stratified evaluation."""
+
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+
+class Query(BaseModel):
+    """A benchmark query with gold-standard annotations."""
+
+    id: str
+    text: str
+    category: QueryCategory
+    difficulty: DifficultyTier
+    budget_feasible_400: bool = True
+    gold_chunk_ids: list[str] = Field(min_length=1)
+    gold_answer: str
+
+    @field_validator("gold_chunk_ids")
+    @classmethod
+    def must_have_gold_chunks(cls, v: list[str]) -> list[str]:
+        if not v:
+            raise ValueError("gold_chunk_ids must not be empty")
+        return v
