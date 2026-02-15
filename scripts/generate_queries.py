@@ -160,8 +160,8 @@ def main() -> None:
     selected = select_chunks_for_generation(chunks, count=args.count * 2, seed=args.seed)
     logger.info("Selected %d chunks for query generation", len(selected))
 
-    # Generate queries
-    client = ClaudeClient()
+    # Generate queries (haiku is cheaper and sufficient for query generation)
+    client = ClaudeClient(model="claude-3-5-haiku-20241022")
     suite = generate_query_suite(client, selected, target_count=args.count, seed=args.seed)
 
     # Save

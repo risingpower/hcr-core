@@ -43,7 +43,16 @@ def generate_queries_for_chunk(
     response = client.complete(prompt, system=GENERATION_SYSTEM, max_tokens=256)
 
     try:
-        parsed = json.loads(response)
+        # Strip markdown code fences if present (```json ... ```)
+        text = response.strip()
+        if text.startswith("```"):
+            # Remove opening fence (```json or ```)
+            first_newline = text.index("\n")
+            text = text[first_newline + 1:]
+            # Remove closing fence
+            if text.endswith("```"):
+                text = text[:-3].strip()
+        parsed = json.loads(text)
         difficulty_str = parsed.get("difficulty", "medium")
         difficulty = DifficultyTier(difficulty_str)
 
