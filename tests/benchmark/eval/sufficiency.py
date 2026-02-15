@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from hcr_core.llm.claude import ClaudeClient
 from hcr_core.types.corpus import Chunk
 from hcr_core.types.metrics import SufficiencyResult
 from hcr_core.types.query import Query
 from tests.benchmark.cache.manager import JudgeCache
+
+logger = logging.getLogger(__name__)
 
 JUDGE_SYSTEM = (
     "You are an evaluation judge. Given a question, a gold-standard answer, "
@@ -75,9 +78,16 @@ class SufficiencyJudge:
             parsed = json.loads(response)
             is_sufficient = bool(parsed["is_sufficient"])
             reasoning = str(parsed["reasoning"])
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
+            logging.warning(
+                "Failed to parse judge response for query %s: %s. "
+                "Raw response: %s",
+                query.id,
+                e,
+                response[:500],
+            )
             is_sufficient = False
-            reasoning = f"Failed to parse judge response: {response[:200]}"
+            reasoning = f"Failed to parse judge response: {e}"
 
         # Cache result
         if self._cache is not None:
@@ -131,9 +141,16 @@ class SufficiencyJudge:
             parsed = json.loads(response)
             is_sufficient = bool(parsed["is_sufficient"])
             reasoning = str(parsed["reasoning"])
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
+            logging.warning(
+                "Failed to parse judge response for query %s: %s. "
+                "Raw response: %s",
+                query.id,
+                e,
+                response[:500],
+            )
             is_sufficient = False
-            reasoning = f"Failed to parse judge response: {response[:200]}"
+            reasoning = f"Failed to parse judge response: {e}"
 
         if self._cache is not None:
             self._cache.save(

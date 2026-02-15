@@ -67,19 +67,14 @@ def generate_routing_summary(
     try:
         parsed = json.loads(response)
         return RoutingSummary(
-            theme=parsed.get("theme", "Unknown"),
-            includes=parsed.get("includes", []),
+            theme=parsed["theme"],
+            includes=parsed["includes"],
             excludes=parsed.get("excludes", []),
             key_entities=parsed.get("key_entities", []),
             key_terms=parsed.get("key_terms", []),
         )
-    except (json.JSONDecodeError, KeyError):
-        # Fallback: create a minimal summary from the content
-        words = content_sample.split()[:20]
-        return RoutingSummary(
-            theme=" ".join(words[:5]),
-            includes=words[:10],
-            excludes=[],
-            key_entities=[],
-            key_terms=words[:5],
-        )
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        raise ValueError(
+            f"LLM returned invalid routing summary: {e}. "
+            f"Raw response: {response[:200]}"
+        ) from e

@@ -1,6 +1,5 @@
 """Tests for scoring components."""
 
-import pytest
 
 from hcr_core.scoring.path_score import path_relevance_ema
 

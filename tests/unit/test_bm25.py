@@ -1,6 +1,5 @@
 """Tests for BM25 index."""
 
-import pytest
 
 from hcr_core.index.bm25 import BM25Index
 from hcr_core.types.corpus import Chunk
@@ -12,7 +11,10 @@ def _make_chunks() -> list[Chunk]:
         Chunk(id="c2", document_id="d1", content="java web development", token_count=3),
         Chunk(id="c3", document_id="d1", content="python data science statistics", token_count=4),
         Chunk(id="c4", document_id="d1", content="javascript frontend react", token_count=3),
-        Chunk(id="c5", document_id="d1", content="python deep learning neural networks", token_count=5),
+        Chunk(
+            id="c5", document_id="d1",
+            content="python deep learning neural networks", token_count=5,
+        ),
     ]
 
 

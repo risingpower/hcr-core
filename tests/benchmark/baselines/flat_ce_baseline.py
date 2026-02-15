@@ -7,19 +7,19 @@ import numpy as np
 from numpy.typing import NDArray
 from sentence_transformers import CrossEncoder
 
+from hcr_core.cache import CrossEncoderCache
 from hcr_core.corpus.embedder import ChunkEmbedder
 from hcr_core.index.bm25 import BM25Index
 from hcr_core.index.hybrid import HybridIndex
 from hcr_core.index.vector import VectorIndex
 from hcr_core.types.corpus import Chunk
-from tests.benchmark.cache.manager import CrossEncoderCache
 
 from . import RetrievalBaseline
 from .bm25_baseline import greedy_token_pack
 
 
 class FlatCrossEncoderBaseline(RetrievalBaseline):
-    """Hybrid pre-filter → cross-encoder rerank → greedy token packing."""
+    """Hybrid pre-filter -> cross-encoder rerank -> greedy token packing."""
 
     def __init__(
         self,
@@ -51,8 +51,10 @@ class FlatCrossEncoderBaseline(RetrievalBaseline):
         candidates = self._index.search(query, query_emb, top_k=self._pre_filter_k)
 
         # Step 2: cross-encoder rerank
+        cached_scores: dict[str, float] = {}
         pairs: list[tuple[str, str]] = []
         candidate_ids: list[str] = []
+
         for chunk_id, _ in candidates:
             chunk = self._chunk_map.get(chunk_id)
             if chunk is None:
@@ -62,26 +64,28 @@ class FlatCrossEncoderBaseline(RetrievalBaseline):
             if self._ce_cache is not None:
                 cached = self._ce_cache.load(query, chunk_id)
                 if cached is not None:
-                    pairs.append((query, chunk.content))
-                    candidate_ids.append(chunk_id)
+                    cached_scores[chunk_id] = cached
                     continue
 
             pairs.append((query, chunk.content))
             candidate_ids.append(chunk_id)
 
-        if not pairs:
-            return []
+        # Compute scores for uncached pairs
+        ce_scores: dict[str, float] = dict(cached_scores)
 
-        ce_scores: list[float] = self._cross_encoder.predict(  # type: ignore[assignment]
-            [(q, d) for q, d in pairs]
-        ).tolist()
+        if pairs:
+            new_scores: list[float] = self._cross_encoder.predict(
+                pairs
+            ).tolist()
 
-        # Cache scores
-        if self._ce_cache is not None:
-            for cid, score in zip(candidate_ids, ce_scores, strict=True):
-                self._ce_cache.save(query, cid, score)
+            for cid, score in zip(candidate_ids, new_scores, strict=True):
+                ce_scores[cid] = score
+
+            # Cache new scores
+            if self._ce_cache is not None:
+                for cid, score in zip(candidate_ids, new_scores, strict=True):
+                    self._ce_cache.save(query, cid, score)
 
         # Step 3: sort by CE score, greedy pack
-        scored = list(zip(candidate_ids, ce_scores, strict=True))
-        scored.sort(key=lambda x: x[1], reverse=True)
+        scored = sorted(ce_scores.items(), key=lambda x: x[1], reverse=True)
         return greedy_token_pack(self._chunks, scored, token_budget)

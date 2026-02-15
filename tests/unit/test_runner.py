@@ -3,8 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from hcr_core.types.corpus import Chunk
 from hcr_core.types.metrics import SufficiencyResult
 from hcr_core.types.query import DifficultyTier, Query, QueryCategory

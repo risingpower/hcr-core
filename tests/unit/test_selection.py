@@ -1,7 +1,5 @@
 """Tests for greedy token packing."""
 
-import numpy as np
-import pytest
 
 from hcr_core.traversal.selection import greedy_token_packing
 from hcr_core.types.corpus import Chunk

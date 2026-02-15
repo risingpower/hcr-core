@@ -1,7 +1,6 @@
 """Tests for hybrid index (RRF fusion)."""
 
 import numpy as np
-import pytest
 
 from hcr_core.index.bm25 import BM25Index
 from hcr_core.index.hybrid import HybridIndex

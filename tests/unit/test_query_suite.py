@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from hcr_core.types.query import DifficultyTier, Query, QueryCategory
 from tests.benchmark.queries.suite import QuerySuite
 

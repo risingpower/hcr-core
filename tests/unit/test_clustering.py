@@ -1,7 +1,6 @@
 """Tests for bisecting k-means clustering."""
 
 import numpy as np
-import pytest
 
 from hcr_core.tree.clustering import bisecting_kmeans
 

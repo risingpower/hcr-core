@@ -1,9 +1,6 @@
 """Tests for benchmark caching (judge cache, cross-encoder cache)."""
 
-import json
 from pathlib import Path
-
-import pytest
 
 from tests.benchmark.cache.manager import CrossEncoderCache, JudgeCache
 

@@ -1,10 +1,8 @@
 """Tests for chunk embedding."""
 
-import tempfile
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from hcr_core.corpus.embedder import ChunkEmbedder, EmbeddingCache
 from hcr_core.types.corpus import Chunk

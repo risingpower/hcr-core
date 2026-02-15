@@ -52,14 +52,30 @@ class QuerySuite:
         train: float = 0.6,
         dev: float = 0.2,
         test: float = 0.2,
+        shuffle: bool = True,
+        seed: int = 42,
     ) -> tuple[QuerySuite, QuerySuite, QuerySuite]:
-        """Split queries into train/dev/test sets."""
-        n = len(self.queries)
+        """Split queries into train/dev/test sets.
+
+        Args:
+            train: Fraction for training set.
+            dev: Fraction for development set.
+            test: Fraction for test set.
+            shuffle: Whether to shuffle before splitting (avoids bias).
+            seed: Random seed for reproducible shuffling.
+        """
+        import random
+
+        queries = list(self.queries)
+        if shuffle:
+            random.Random(seed).shuffle(queries)
+
+        n = len(queries)
         train_end = int(n * train)
         dev_end = train_end + int(n * dev)
 
         return (
-            QuerySuite(self.queries[:train_end]),
-            QuerySuite(self.queries[train_end:dev_end]),
-            QuerySuite(self.queries[dev_end:]),
+            QuerySuite(queries[:train_end]),
+            QuerySuite(queries[train_end:dev_end]),
+            QuerySuite(queries[dev_end:]),
         )

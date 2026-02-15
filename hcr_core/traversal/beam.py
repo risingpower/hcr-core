@@ -59,8 +59,8 @@ class BeamSearchTraversal:
         beam = [BeamEntry(node_id=root.id, path_score=1.0, depth=0)]
         beam_per_level: dict[int, list[str]] = {0: [root.id]}
 
-        while True:
-            # Expand all non-leaf nodes in beam
+        max_iterations = 100  # Safety bound against cycles
+        for _iteration in range(max_iterations):
             candidates: list[BeamEntry] = []
             leaves: list[BeamEntry] = []
 
@@ -111,6 +111,10 @@ class BeamSearchTraversal:
                     leaf_scores=[e.path_score for e in beam],
                     beam_per_level=beam_per_level,
                 )
+
+        raise RuntimeError(
+            "Beam search exceeded maximum iterations — possible cycle in tree"
+        )
 
     def _select_diverse_beam(
         self, candidates: list[BeamEntry]

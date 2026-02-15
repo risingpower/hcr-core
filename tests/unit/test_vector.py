@@ -1,13 +1,11 @@
 """Tests for vector index (FAISS)."""
 
 import numpy as np
-import pytest
 
 from hcr_core.index.vector import VectorIndex
 
 
 def _make_index() -> VectorIndex:
-    dim = 4
     embeddings = np.array(
         [
             [1.0, 0.0, 0.0, 0.0],

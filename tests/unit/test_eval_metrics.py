@@ -1,9 +1,7 @@
 """Tests for benchmark evaluation metrics."""
 
 import numpy as np
-import pytest
 
-from hcr_core.types.metrics import EpsilonMeasurement
 from hcr_core.types.query import DifficultyTier, Query, QueryCategory
 from hcr_core.types.tree import HCRTree, RoutingSummary, TreeNode
 from tests.benchmark.eval.epsilon import compute_epsilon

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from hcr_core.llm.claude import ClaudeClient
 from hcr_core.types.corpus import Chunk
@@ -54,5 +55,10 @@ def generate_queries_for_chunk(
             gold_chunk_ids=[chunk.id],
             gold_answer=parsed["answer"],
         )
-    except (json.JSONDecodeError, KeyError, ValueError):
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        logging.warning(
+            "Failed to parse LLM query generation response for chunk %s: %s",
+            chunk.id,
+            e,
+        )
         return None

@@ -51,8 +51,13 @@ class ClaudeClient:
                 max_tokens=max_tokens,
                 messages=messages,
             )
+        if not response.content:
+            raise ValueError("Claude API returned empty content")
         block = response.content[0]
-        assert hasattr(block, "text")
+        if not hasattr(block, "text"):
+            raise ValueError(
+                f"Expected text block from Claude API, got {type(block).__name__}"
+            )
         return block.text
 
     async def acomplete(
@@ -77,6 +82,11 @@ class ClaudeClient:
                 max_tokens=max_tokens,
                 messages=messages,
             )
+        if not response.content:
+            raise ValueError("Claude API returned empty content")
         block = response.content[0]
-        assert hasattr(block, "text")
+        if not hasattr(block, "text"):
+            raise ValueError(
+                f"Expected text block from Claude API, got {type(block).__name__}"
+            )
         return block.text

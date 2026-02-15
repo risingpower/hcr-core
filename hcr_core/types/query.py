@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class QueryCategory(StrEnum):
@@ -37,10 +37,3 @@ class Query(BaseModel):
     budget_feasible_400: bool = True
     gold_chunk_ids: list[str] = Field(min_length=1)
     gold_answer: str
-
-    @field_validator("gold_chunk_ids")
-    @classmethod
-    def must_have_gold_chunks(cls, v: list[str]) -> list[str]:
-        if not v:
-            raise ValueError("gold_chunk_ids must not be empty")
-        return v

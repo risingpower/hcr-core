@@ -1,6 +1,5 @@
 """Tests for document chunking."""
 
-import pytest
 
 from hcr_core.corpus.chunker import chunk_document, count_tokens
 from hcr_core.types.corpus import Chunk, Document

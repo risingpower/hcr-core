@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sentence_transformers import CrossEncoder
 
-from tests.benchmark.cache.manager import CrossEncoderCache
+from hcr_core.cache import CrossEncoderCache
 
 
 class CrossEncoderScorer:
