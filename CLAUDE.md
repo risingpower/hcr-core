@@ -2,7 +2,7 @@
 
 Hierarchical Context Retrieval — coarse-to-fine retrieval for LLM systems. Minimum viable context: correct answer, fewest tokens.
 
-**This is R&D.** Phase 0 (research) complete. Phase 1 (core library) implemented. Now in **empirical validation** — assembling corpus, generating queries, running benchmarks.
+**This is R&D.** Phase 0 (research) complete. Phase 1 (core library) implemented. Now in **empirical validation** — baselines established, ready for HCR vs baseline comparison.
 
 ## Git Workflow
 
@@ -91,6 +91,16 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 | **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
 
 Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode analysis (RB-005), and benchmark design (RB-006) all confirmed. No showstopper identified across six research briefs. Remaining uncertainty is empirical — Phase 1 benchmark will validate or invalidate all three hypotheses.
+
+**Baseline results (2026-02-15):**
+
+| System | nDCG@10 | Recall@10 | MRR | MeanTok |
+|--------|---------|-----------|-----|---------|
+| BM25 | 0.705 | 0.82 | 0.669 | 333 |
+| Hybrid-RRF | 0.719 | 0.90 | 0.662 | 343 |
+| **Flat+CE (kill)** | **0.835** | **0.94** | **0.803** | 354 |
+
+Flat+CE is the kill baseline. HCR must beat nDCG@10=0.835 under token constraints to validate H1a/H1b.
 
 Full details: `docs/research/hypotheses.md`
 

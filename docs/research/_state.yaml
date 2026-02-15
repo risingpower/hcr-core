@@ -10,7 +10,7 @@ last_session: "2026-02-15"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Corpus prepared (315 chunks), 50 queries generated, sanity check passed. All three baselines (BM25, hybrid, flat+CE) operational. Ready for full baseline evaluation (--mode baselines)."
+  focus: "Baseline evaluation complete. Flat+CE kill baseline established at nDCG@10=0.835. Ready for per-category analysis then HCR vs baselines."
   blockers: []
 
 # Research briefs status
@@ -42,6 +42,25 @@ briefs:
       completed: "2026-02-13"
       key_finding: "Four-source convergence on benchmark design. Hybrid corpus (50K–100K chunks from GitLab handbook + EnronQA + synthetic injectors). 300–400 stratified queries with budget-feasibility labels. 7 core metrics led by per-level routing accuracy ε (never measured in any system) and answer sufficiency under token constraint. 4 baselines (BM25, hybrid flat, flat+CE as kill baseline, RAPTOR). Fail-fast sequence with kill criteria at each step. MVB costs $15–30 in LLM API calls. Success criteria: HCR@400 ≥ flat@400 + 5pp, ε ≤ 0.03 per level, dual-path ≥ single-path + 3pp. Kill: flat+CE beats HCR at full corpus with significance."
 
+# Baseline results (2026-02-15)
+baseline_results:
+  bm25:
+    ndcg_at_10: 0.705
+    recall_at_10: 0.82
+    mrr: 0.669
+    mean_tokens: 333
+  hybrid_rrf:
+    ndcg_at_10: 0.719
+    recall_at_10: 0.90
+    mrr: 0.662
+    mean_tokens: 343
+  flat_ce:
+    ndcg_at_10: 0.835
+    recall_at_10: 0.94
+    mrr: 0.803
+    mean_tokens: 354
+  notes: "IR metrics computed on full ranked list (top-50). Token metrics on 400-token packed result. Median chunk ~470 tokens, so packing yields 0-1 chunks per query. Flat+CE is kill baseline. Results in benchmark/results/baseline_results.json (gitignored)."
+
 # Implementation phases completed
 implementation:
   phases_complete:
@@ -56,6 +75,8 @@ implementation:
     - "Code review fixes"
     - "Query generator fix (JSON fence stripping, Haiku model)"
     - "Sanity check passed (all baselines operational)"
+    - "Baseline evaluation fix (separate ranking from token packing)"
+    - "Baseline evaluation complete (BM25, hybrid, flat+CE)"
   test_count: 126
   mypy_status: "clean (30 source files)"
   ruff_status: "clean"
@@ -69,7 +90,7 @@ hypotheses:
   retired: 1  # Original H1
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "All six research briefs complete. No showstoppers found. Architecture fully specified. Benchmark designed. Core library implemented. Ready for empirical validation."
+  notes: "Baselines established. Flat+CE (nDCG@10=0.835, Recall@10=0.94) is a strong kill baseline. HCR must beat this under token constraints to validate H1a/H1b."
 
 # Knowledge accumulation
 knowledge:
@@ -81,11 +102,30 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Run baseline evaluation: python scripts/run_benchmark.py --mode baselines --corpus-dir benchmark/corpus --queries-path benchmark/queries/queries.json"
-  - "Analyse baseline results — establish IR metric baselines (nDCG@10, Recall@10, MRR) for BM25, hybrid, flat+CE"
-  - "Run fail-fast experiment 2: flat+CE kill baseline at scale (expand corpus if needed)"
-  - "Run fail-fast experiment 3: HCR vs baselines"
+  - "Analyse baselines per category — which query types does flat+CE handle well vs poorly? Are there categories where simpler baselines win?"
+  - "Run HCR tree building on benchmark corpus: build tree, measure tree quality metrics (depth, branching factor, sibling distinctiveness)"
+  - "Run HCR traversal (beam search + collapsed-tree dual-path) on the 50 queries"
+  - "Compare HCR vs baselines — the kill criterion: does flat+CE beat HCR at full corpus with significance?"
+  - "If HCR shows promise: expand corpus and scale up (fail-fast experiment 2)"
   - "Implement full mode with LLM sufficiency judge (run_benchmark.py --mode full)"
 
 # Notes for next session
-notes: "Corpus (315 chunks, 50 docs) and queries (50, stratified across 9 categories) ready. Sanity check passed — all three baselines retrieve chunks correctly. Fixed query generator JSON parsing (LLM responses wrapped in markdown fences) and switched to Haiku for cheaper generation. Next: run --mode baselines to get IR metrics, then analyse results before scaling up. Dependencies installed via pip install -e '.[dev]'."
+notes: |
+  Session fixed a bug where IR metrics were computed on token-packed results (~1 chunk)
+  instead of the full ranked list. After fix, baselines show credible numbers:
+  - BM25: nDCG@10=0.705, Recall@10=0.82
+  - Hybrid: nDCG@10=0.719, Recall@10=0.90
+  - Flat+CE: nDCG@10=0.835, Recall@10=0.94 (kill baseline)
+
+  Key observation: median chunk is 470 tokens, mean 398. At 400-token budget, packing
+  yields 0-1 chunks. All baselines average 333-354 tokens. This is relevant for H1a
+  (token efficiency) — there's not much room to compress further unless HCR can route
+  to smaller, more targeted chunks.
+
+  Flat+CE is strong. Cross-encoder reranking adds ~12pp nDCG over hybrid alone.
+  HCR needs to beat 0.835 nDCG@10 under token constraints, or demonstrate value on
+  specific query categories (cross-branch, multi-hop) where flat approaches struggle.
+
+  Dependencies: pip install -e '.[dev]'
+  Run baselines: python scripts/run_benchmark.py --mode baselines --corpus-dir benchmark/corpus --queries-path benchmark/queries/queries.json
+  Branch: 0215jc (today's, will need new branch if next session is a different day)
