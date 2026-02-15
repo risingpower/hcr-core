@@ -10,7 +10,7 @@ last_session: "2026-02-15"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Phase 1 core library complete (9 implementation phases). All components built and tested: types, corpus pipeline, indexes, LLM client, baselines, eval metrics, query suite, benchmark runner, HCR core (tree builder, traversal, dual-path). 126 tests passing, mypy/ruff clean. Now assembling corpus data and orchestration for empirical validation."
+  focus: "Corpus prepared (315 chunks), 50 queries generated, sanity check passed. All three baselines (BM25, hybrid, flat+CE) operational. Ready for full baseline evaluation (--mode baselines)."
   blockers: []
 
 # Research briefs status
@@ -54,6 +54,8 @@ implementation:
     - "Phase 7: Query suite + benchmark runner"
     - "Phase 9: HCR core (tree builder, beam traversal, collapsed retrieval, dual-path, scoring cascade)"
     - "Code review fixes"
+    - "Query generator fix (JSON fence stripping, Haiku model)"
+    - "Sanity check passed (all baselines operational)"
   test_count: 126
   mypy_status: "clean (30 source files)"
   ruff_status: "clean"
@@ -79,12 +81,11 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Build corpus download/preparation script (GitLab handbook)"
-  - "Build CLI orchestration script for end-to-end benchmark runs"
-  - "Generate query suite from corpus using LLM"
-  - "Run fail-fast experiment 1: baseline sanity on small corpus"
-  - "Run fail-fast experiment 2: flat+CE kill baseline at scale"
+  - "Run baseline evaluation: python scripts/run_benchmark.py --mode baselines --corpus-dir benchmark/corpus --queries-path benchmark/queries/queries.json"
+  - "Analyse baseline results — establish IR metric baselines (nDCG@10, Recall@10, MRR) for BM25, hybrid, flat+CE"
+  - "Run fail-fast experiment 2: flat+CE kill baseline at scale (expand corpus if needed)"
   - "Run fail-fast experiment 3: HCR vs baselines"
+  - "Implement full mode with LLM sufficiency judge (run_benchmark.py --mode full)"
 
 # Notes for next session
-notes: "Phase 1 core library fully implemented across 9 phases (1,572 lines source, 2,455 lines tests). All components wired: tree construction, dual-path traversal, scoring cascades, benchmark infrastructure. Build is clean. Now need corpus data (GitLab handbook primary), query generation, and CLI orchestration to begin empirical validation. Starting with MVB approach: small corpus first to validate pipeline end-to-end, then scale."
+notes: "Corpus (315 chunks, 50 docs) and queries (50, stratified across 9 categories) ready. Sanity check passed — all three baselines retrieve chunks correctly. Fixed query generator JSON parsing (LLM responses wrapped in markdown fences) and switched to Haiku for cheaper generation. Next: run --mode baselines to get IR metrics, then analyse results before scaling up. Dependencies installed via pip install -e '.[dev]'."
