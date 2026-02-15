@@ -102,6 +102,19 @@ Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode an
 
 Flat+CE is the kill baseline. HCR must beat nDCG@10=0.835 under token constraints to validate H1a/H1b.
 
+**Per-category analysis (2026-02-15):**
+
+| Category | N | CE nDCG@10 | CE-BM25 gap | HCR opportunity |
+|----------|---|-----------|-------------|-----------------|
+| ambiguous | 2 | 0.565 | +0.315 | High (all systems weak, low N) |
+| dpi | 7 | 0.615 | +0.006 | High (CE adds nothing over BM25) |
+| comparative | 5 | 0.663 | +0.451 | High (cross-branch hard for flat) |
+| single_branch | 12 | 0.792 | +0.023 | Medium (CE adds little) |
+| entity_spanning | 10 | 1.000 | +0.137 | Token-only (CE perfect) |
+| multi_hop | 5 | 1.000 | +0.274 | Token-only (CE perfect) |
+
+HCR should target dpi + comparative (12 queries) for accuracy wins. Per-query results: `benchmark/results/per_query_results.json`.
+
 Full details: `docs/research/hypotheses.md`
 
 **Consumer:** Su — agentic command centre. Purely outcomes-focused, minimal context, needs precise retrieval from a growing organisation.
