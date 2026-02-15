@@ -2,7 +2,7 @@
 
 Hierarchical Context Retrieval — coarse-to-fine retrieval for LLM systems. Minimum viable context: correct answer, fewest tokens.
 
-**This is R&D.** Phase 0 (research) complete. Phase 1 (core library + benchmark validation) is active.
+**This is R&D.** Phase 0 (research) complete. Phase 1 (core library) implemented. Now in **empirical validation** — assembling corpus, generating queries, running benchmarks.
 
 ## Git Workflow
 
