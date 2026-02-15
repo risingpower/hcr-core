@@ -1,11 +1,13 @@
 """Run HCR benchmark evaluation.
 
 Usage:
-    python scripts/run_benchmark.py [--mode sanity|baselines|full] [--corpus-dir benchmark/corpus]
+    python scripts/run_benchmark.py [--mode sanity|baselines|hcr|full]
+           [--corpus-dir benchmark/corpus]
 
 Modes:
     sanity    - Quick pipeline validation on small corpus (no LLM calls)
     baselines - Run all baselines with IR metrics (no sufficiency judge)
+    hcr       - Build HCR tree, evaluate HCR vs baselines, compute epsilon + tree quality
     full      - Full evaluation including LLM sufficiency judge
 
 Requires prepared corpus (run scripts/prepare_corpus.py first).
@@ -24,14 +26,20 @@ import numpy as np
 from numpy.typing import NDArray
 
 from hcr_core.corpus.embedder import ChunkEmbedder, EmbeddingCache
+from hcr_core.llm.claude import ClaudeClient
+from hcr_core.scoring.cross_encoder import CrossEncoderScorer
+from hcr_core.tree.builder import TreeBuilder
 from hcr_core.types.corpus import Chunk
 from hcr_core.types.metrics import BenchmarkResult
 from hcr_core.types.query import Query
 from tests.benchmark.baselines import RetrievalBaseline
 from tests.benchmark.baselines.bm25_baseline import BM25Baseline
 from tests.benchmark.baselines.flat_ce_baseline import FlatCrossEncoderBaseline
+from tests.benchmark.baselines.hcr_baseline import HCRBaseline
 from tests.benchmark.baselines.hybrid_baseline import HybridBaseline
+from tests.benchmark.eval.epsilon import compute_epsilon
 from tests.benchmark.eval.ir_metrics import mrr, ndcg_at_k, recall_at_k
+from tests.benchmark.eval.tree_quality import sibling_distinctiveness
 from tests.benchmark.queries.suite import QuerySuite
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -246,13 +254,239 @@ def run_baselines(
     return results
 
 
+def evaluate_hcr(
+    hcr_baseline: HCRBaseline,
+    queries: list[Query],
+    corpus_size: int,
+    token_budget: int = 400,
+) -> BenchmarkResult:
+    """Evaluate HCR baseline, storing beam results for epsilon measurement."""
+    all_ranked_ids: list[list[str]] = []
+    total_tokens = 0.0
+
+    for query in queries:
+        ranked = hcr_baseline.rank(query.text, top_k=50)
+        all_ranked_ids.append([chunk_id for chunk_id, _ in ranked])
+        hcr_baseline.store_beam_result(query.id)
+
+        packed = hcr_baseline.retrieve(query.text, token_budget)
+        total_tokens += sum(c.token_count for c in packed)
+
+    n = len(queries)
+    mean_tokens = total_tokens / n if n > 0 else 0.0
+
+    ndcg_scores: list[float] = []
+    recall_scores: list[float] = []
+    mrr_scores: list[float] = []
+
+    for query, ranked_ids in zip(queries, all_ranked_ids, strict=True):
+        relevant = set(query.gold_chunk_ids)
+        ndcg_scores.append(ndcg_at_k(ranked_ids, relevant, k=10))
+        recall_scores.append(recall_at_k(ranked_ids, relevant, k=10))
+        mrr_scores.append(mrr(ranked_ids, relevant))
+
+    return BenchmarkResult(
+        system_name=hcr_baseline.name,
+        corpus_size=corpus_size,
+        query_count=n,
+        epsilon_per_level=[],
+        sufficiency_at_400=0.0,
+        ndcg_at_10=sum(ndcg_scores) / n if n > 0 else 0.0,
+        recall_at_10=sum(recall_scores) / n if n > 0 else 0.0,
+        mrr=sum(mrr_scores) / n if n > 0 else 0.0,
+        mean_tokens_used=mean_tokens,
+    )
+
+
+def run_hcr(
+    chunks: list[Chunk],
+    embeddings: NDArray[np.float32],
+    embedder: ChunkEmbedder,
+    queries: list[Query],
+    results_dir: Path,
+    tree_cache_path: Path | None = None,
+) -> None:
+    """Build HCR tree, evaluate against baselines, compute epsilon + tree quality."""
+    logger.info("=== HCR EVALUATION ===")
+    logger.info("Corpus: %d chunks, Queries: %d", len(chunks), len(queries))
+
+    # Step 1: Build or load tree
+    tree_path = tree_cache_path or (results_dir / "hcr_tree.json")
+    if tree_path.exists():
+        from hcr_core.types.tree import HCRTree as HCRTreeModel
+        logger.info("Loading cached tree from %s", tree_path)
+        tree = HCRTreeModel.model_validate_json(tree_path.read_text())
+    else:
+        logger.info("Building HCR tree (LLM calls for routing summaries)...")
+        llm = ClaudeClient(model="claude-3-5-haiku-20241022")
+        builder = TreeBuilder(
+            embedder=embedder,
+            llm=llm,
+            depth=2,
+            branching=10,
+        )
+        start = time.time()
+        tree = builder.build(chunks, embeddings)
+        elapsed = time.time() - start
+        logger.info(
+            "Tree built in %.1fs: %d nodes, depth=%d",
+            elapsed,
+            len(tree.nodes),
+            tree.depth,
+        )
+        # Cache tree
+        results_dir.mkdir(parents=True, exist_ok=True)
+        tree_path.write_text(tree.model_dump_json(indent=2))
+        logger.info("Tree cached to %s", tree_path)
+
+    # Step 2: Tree quality metrics
+    node_embeddings: dict[str, NDArray[np.float32]] = {}
+    for node_id, node in tree.nodes.items():
+        if node.summary_embedding is not None:
+            node_embeddings[node_id] = np.array(
+                node.summary_embedding, dtype=np.float32
+            )
+
+    sd = sibling_distinctiveness(tree, node_embeddings)
+    logger.info("Sibling distinctiveness: %.4f (kill < 0.15)", sd)
+
+    # Log tree structure
+    leaf_count = sum(1 for n in tree.nodes.values() if n.is_leaf)
+    internal_count = len(tree.nodes) - leaf_count
+    root = tree.nodes[tree.root_id]
+    branch_count = len(root.child_ids)
+    logger.info(
+        "Tree: %d leaves, %d internal nodes, %d branches at root",
+        leaf_count,
+        internal_count,
+        branch_count,
+    )
+
+    if sd < 0.15:
+        logger.warning(
+            "KILL: Sibling distinctiveness %.4f < 0.15 — tree is too "
+            "homogeneous for effective routing",
+            sd,
+        )
+
+    # Step 3: Evaluate HCR
+    logger.info("Evaluating HCR (dual-path: beam + collapsed)...")
+    cross_encoder = CrossEncoderScorer()
+    hcr_baseline = HCRBaseline(
+        tree=tree,
+        chunks=chunks,
+        embeddings=embeddings,
+        embedder=embedder,
+        cross_encoder=cross_encoder,
+    )
+
+    start = time.time()
+    hcr_result = evaluate_hcr(hcr_baseline, queries, len(chunks))
+    elapsed = time.time() - start
+    _log_baseline_result("HCR", hcr_result, elapsed)
+
+    # Step 4: Compute epsilon (per-level routing accuracy)
+    epsilon_measurements = compute_epsilon(
+        tree, queries, hcr_baseline.beam_results
+    )
+    hcr_result.epsilon_per_level = epsilon_measurements
+    for em in epsilon_measurements:
+        logger.info(
+            "Epsilon at level %d: %.4f (%d/%d correct)",
+            em.level,
+            em.epsilon,
+            em.correct_branch_in_beam,
+            em.queries_evaluated,
+        )
+
+    # Step 5: Per-query results for HCR
+    per_query_hcr: list[dict[str, object]] = []
+    for query in queries:
+        ranked = hcr_baseline.rank(query.text, top_k=50)
+        ranked_ids = [cid for cid, _ in ranked]
+        relevant = set(query.gold_chunk_ids)
+        packed = hcr_baseline.retrieve(query.text, 400)
+        per_query_hcr.append({
+            "query_id": query.id,
+            "query_text": query.text,
+            "category": (
+                query.category.value
+                if hasattr(query.category, "value")
+                else str(query.category)
+            ),
+            "ndcg_at_10": ndcg_at_k(ranked_ids, relevant, k=10),
+            "recall_at_10": recall_at_k(ranked_ids, relevant, k=10),
+            "mrr": mrr(ranked_ids, relevant),
+            "tokens_used": sum(c.token_count for c in packed),
+            "chunks_retrieved": len(ranked),
+        })
+
+    # Step 6: Save results
+    results_dir.mkdir(parents=True, exist_ok=True)
+    hcr_output = results_dir / "hcr_results.json"
+    hcr_output.write_text(json.dumps(hcr_result.model_dump(), indent=2))
+    logger.info("HCR results saved to %s", hcr_output)
+
+    per_query_path = results_dir / "hcr_per_query_results.json"
+    per_query_path.write_text(json.dumps(per_query_hcr, indent=2))
+    logger.info("Per-query HCR results saved to %s", per_query_path)
+
+    # Step 7: Comparison table (load baseline results if available)
+    baseline_path = results_dir / "baseline_results.json"
+    all_results = []
+    if baseline_path.exists():
+        baseline_data = json.loads(baseline_path.read_text())
+        for bd in baseline_data:
+            all_results.append(BenchmarkResult(**bd))
+    all_results.append(hcr_result)
+
+    print("\n" + "=" * 80)
+    fmt = "{:<15} {:>10} {:>10} {:>10} {:>10}"
+    print(fmt.format("System", "nDCG@10", "Recall@10", "MRR", "MeanTok"))
+    print("-" * 80)
+    for r in all_results:
+        print(fmt.format(
+            r.system_name,
+            f"{r.ndcg_at_10:.4f}",
+            f"{r.recall_at_10:.4f}",
+            f"{r.mrr:.4f}",
+            f"{r.mean_tokens_used:.0f}",
+        ))
+    print("-" * 80)
+
+    # Delta vs kill baseline
+    ce_ndcg = next(
+        (r.ndcg_at_10 for r in all_results if r.system_name == "flat-ce"),
+        None,
+    )
+    if ce_ndcg is not None:
+        delta = hcr_result.ndcg_at_10 - ce_ndcg
+        token_delta = hcr_result.mean_tokens_used - next(
+            r.mean_tokens_used for r in all_results if r.system_name == "flat-ce"
+        )
+        print("\nHCR vs Flat+CE (kill baseline):")
+        print(f"  nDCG@10 delta: {delta:+.4f} ({'WIN' if delta > 0 else 'LOSE'})")
+        print(f"  Token delta:   {token_delta:+.0f}")
+
+    # Epsilon summary
+    if epsilon_measurements:
+        print("\nPer-level routing accuracy (epsilon, lower=better):")
+        for em in epsilon_measurements:
+            print(f"  Level {em.level}: ε={em.epsilon:.4f}")
+
+    # Tree quality
+    print("\nTree quality:")
+    print(f"  Sibling distinctiveness: {sd:.4f} (kill < 0.15)")
+    print("=" * 80)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run HCR benchmark evaluation"
     )
     parser.add_argument(
         "--mode",
-        choices=["sanity", "baselines", "full"],
+        choices=["sanity", "baselines", "hcr", "full"],
         default="sanity",
         help="Evaluation mode.",
     )
@@ -324,6 +558,10 @@ def main() -> None:
 
     if args.mode == "baselines":
         run_baselines(
+            chunks, embeddings, embedder, suite.queries, results_dir
+        )
+    elif args.mode == "hcr":
+        run_hcr(
             chunks, embeddings, embedder, suite.queries, results_dir
         )
     elif args.mode == "full":

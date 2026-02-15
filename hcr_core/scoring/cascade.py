@@ -14,6 +14,9 @@ class ScoringCascade:
 
     Stage 1: Dense similarity pre-filter (all children) -> top pre_filter_k
     Stage 2: Cross-encoder rerank -> top final_k
+
+    For leaf nodes (no summary embedding), falls back to chunk embeddings
+    and chunk content for scoring.
     """
 
     def __init__(
@@ -21,10 +24,36 @@ class ScoringCascade:
         cross_encoder: CrossEncoderScorer,
         pre_filter_k: int = 3,
         final_k: int = 2,
+        chunk_embeddings: dict[str, NDArray[np.float32]] | None = None,
+        chunk_texts: dict[str, str] | None = None,
     ) -> None:
         self._cross_encoder = cross_encoder
         self._pre_filter_k = pre_filter_k
         self._final_k = final_k
+        self._chunk_embeddings = chunk_embeddings or {}
+        self._chunk_texts = chunk_texts or {}
+
+    def _get_embedding(
+        self, child: TreeNode
+    ) -> NDArray[np.float32] | None:
+        """Get embedding for a node: summary embedding or chunk embedding."""
+        if child.summary_embedding is not None:
+            return np.array(child.summary_embedding, dtype=np.float32)
+        if child.is_leaf and child.chunk_id is not None:
+            return self._chunk_embeddings.get(child.chunk_id)
+        return None
+
+    def _get_text(self, child: TreeNode) -> str | None:
+        """Get text for cross-encoder scoring: summary or chunk content."""
+        if child.summary is not None:
+            return (
+                f"Theme: {child.summary.theme}. "
+                f"Includes: {', '.join(child.summary.includes)}. "
+                f"Excludes: {', '.join(child.summary.excludes)}."
+            )
+        if child.is_leaf and child.chunk_id is not None:
+            return self._chunk_texts.get(child.chunk_id)
+        return None
 
     def score_children(
         self,
@@ -35,10 +64,14 @@ class ScoringCascade:
     ) -> list[tuple[str, float]]:
         """Score children of a node, returning (child_id, score) sorted descending.
 
-        Stage 1: Cosine similarity pre-filter using summary embeddings.
-        Stage 2: Cross-encoder rerank on summary text.
+        Stage 1: Cosine similarity pre-filter using embeddings.
+        Stage 2: Cross-encoder rerank on text.
         """
-        children = [tree.nodes[cid] for cid in parent_node.child_ids if cid in tree.nodes]
+        children = [
+            tree.nodes[cid]
+            for cid in parent_node.child_ids
+            if cid in tree.nodes
+        ]
 
         if not children:
             return []
@@ -46,12 +79,12 @@ class ScoringCascade:
         # Stage 1: Dense similarity pre-filter
         scored: list[tuple[str, float]] = []
         for child in children:
-            if child.summary_embedding is not None:
-                child_emb = np.array(child.summary_embedding, dtype=np.float32)
-                norm = float(np.linalg.norm(child_emb))
+            emb = self._get_embedding(child)
+            if emb is not None:
+                norm = float(np.linalg.norm(emb))
                 if norm > 0:
-                    child_emb = child_emb / norm
-                sim = float(np.dot(query_embedding, child_emb))
+                    emb = emb / norm
+                sim = float(np.dot(query_embedding, emb))
                 scored.append((child.id, sim))
             else:
                 scored.append((child.id, 0.0))
@@ -60,23 +93,21 @@ class ScoringCascade:
         top_candidates = scored[: self._pre_filter_k]
 
         # Stage 2: Cross-encoder rerank
-        candidate_nodes = [tree.nodes[cid] for cid, _ in top_candidates]
         texts = []
         ids = []
-        for node in candidate_nodes:
-            if node.summary is not None:
-                summary_text = (
-                    f"Theme: {node.summary.theme}. "
-                    f"Includes: {', '.join(node.summary.includes)}. "
-                    f"Excludes: {', '.join(node.summary.excludes)}."
-                )
-                texts.append(summary_text)
-                ids.append(node.id)
+        for cid, _ in top_candidates:
+            node = tree.nodes[cid]
+            text = self._get_text(node)
+            if text is not None:
+                texts.append(text)
+                ids.append(cid)
 
         if not texts:
             return top_candidates[: self._final_k]
 
-        ce_scores = self._cross_encoder.score_batch(query, texts, chunk_ids=ids)
+        ce_scores = self._cross_encoder.score_batch(
+            query, texts, chunk_ids=ids
+        )
         reranked = list(zip(ids, ce_scores, strict=True))
         reranked.sort(key=lambda x: x[1], reverse=True)
 
