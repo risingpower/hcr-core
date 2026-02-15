@@ -4,13 +4,13 @@
 # Update this at session end and read at session start.
 
 version: "1.0"
-last_updated: "2026-02-13"
-last_session: "2026-02-13"
+last_updated: "2026-02-15"
+last_session: "2026-02-15"
 
 # Current focus
 current:
-  phase: "implementation"  # discovery | research | implementation | validation
-  focus: "RB-006 complete. All six research briefs done. Benchmark design is convergent (4/4 source agreement). Go/no-go decision: GO on Phase 1. Next: scaffold Phase 1 implementation starting with benchmark infrastructure."
+  phase: "validation"  # discovery | research | implementation | validation
+  focus: "Phase 1 core library complete (9 implementation phases). All components built and tested: types, corpus pipeline, indexes, LLM client, baselines, eval metrics, query suite, benchmark runner, HCR core (tree builder, traversal, dual-path). 126 tests passing, mypy/ruff clean. Now assembling corpus data and orchestration for empirical validation."
   blockers: []
 
 # Research briefs status
@@ -42,6 +42,22 @@ briefs:
       completed: "2026-02-13"
       key_finding: "Four-source convergence on benchmark design. Hybrid corpus (50K–100K chunks from GitLab handbook + EnronQA + synthetic injectors). 300–400 stratified queries with budget-feasibility labels. 7 core metrics led by per-level routing accuracy ε (never measured in any system) and answer sufficiency under token constraint. 4 baselines (BM25, hybrid flat, flat+CE as kill baseline, RAPTOR). Fail-fast sequence with kill criteria at each step. MVB costs $15–30 in LLM API calls. Success criteria: HCR@400 ≥ flat@400 + 5pp, ε ≤ 0.03 per level, dual-path ≥ single-path + 3pp. Kill: flat+CE beats HCR at full corpus with significance."
 
+# Implementation phases completed
+implementation:
+  phases_complete:
+    - "Phase 1: Core types (Pydantic models)"
+    - "Phase 2: Corpus pipeline (chunker, loader, embedder)"
+    - "Phase 3: Index infrastructure (BM25, vector, hybrid)"
+    - "Phase 4: LLM client + caching"
+    - "Phase 5: Retrieval baselines (BM25, hybrid, flat+CE)"
+    - "Phase 6: Evaluation metrics (epsilon, sufficiency, IR)"
+    - "Phase 7: Query suite + benchmark runner"
+    - "Phase 9: HCR core (tree builder, beam traversal, collapsed retrieval, dual-path, scoring cascade)"
+    - "Code review fixes"
+  test_count: 126
+  mypy_status: "clean (30 source files)"
+  ruff_status: "clean"
+
 # Hypothesis summary
 hypotheses:
   total: 3
@@ -51,7 +67,7 @@ hypotheses:
   retired: 1  # Original H1
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "All six research briefs complete. No showstoppers found. Architecture fully specified. Benchmark designed. Ready for empirical validation in Phase 1."
+  notes: "All six research briefs complete. No showstoppers found. Architecture fully specified. Benchmark designed. Core library implemented. Ready for empirical validation."
 
 # Knowledge accumulation
 knowledge:
@@ -63,11 +79,12 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
-  - "Scaffold Phase 1 project structure (benchmark as first deliverable)"
-  - "Build corpus pipeline (GitLab handbook + EnronQA + synthetic injectors)"
-  - "Implement flat+CE baseline first (it's the comparison target)"
-  - "Build tree construction with instrumented ε logging"
-  - "Run fail-fast experiments 1–3 before full evaluation"
+  - "Build corpus download/preparation script (GitLab handbook)"
+  - "Build CLI orchestration script for end-to-end benchmark runs"
+  - "Generate query suite from corpus using LLM"
+  - "Run fail-fast experiment 1: baseline sanity on small corpus"
+  - "Run fail-fast experiment 2: flat+CE kill baseline at scale"
+  - "Run fail-fast experiment 3: HCR vs baselines"
 
 # Notes for next session
-notes: "RB-006 consolidation complete with 4/4 sources. Highest source agreement of any brief. Benchmark design is convergent — no fundamental conflicts, only calibration differences in thresholds. Key decisions: corpus at 50K–100K chunks (not docs), sufficiency@B as primary metric (not nDCG), ε₁ > 0.05 as kill threshold, contrastive-vs-generic summaries as highest-value component ablation. Phase 0 (Research & Validation) is complete. Phase 1 (Core Library) can begin. First implementation deliverable should be the benchmark infrastructure itself."
+notes: "Phase 1 core library fully implemented across 9 phases (1,572 lines source, 2,455 lines tests). All components wired: tree construction, dual-path traversal, scoring cascades, benchmark infrastructure. Build is clean. Now need corpus data (GitLab handbook primary), query generation, and CLI orchestration to begin empirical validation. Starting with MVB approach: small corpus first to validate pipeline end-to-end, then scale."

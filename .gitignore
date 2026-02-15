@@ -35,6 +35,9 @@ coverage.xml
 .DS_Store
 Thumbs.db
 
+# Raw data (downloaded corpora)
+data/
+
 # Benchmark data (large files, generated)
 benchmark/corpus/
 benchmark/embeddings/
