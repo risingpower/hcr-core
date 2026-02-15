@@ -14,5 +14,9 @@ class RetrievalBaseline(ABC):
         """Name of this baseline for reporting."""
 
     @abstractmethod
+    def rank(self, query: str, top_k: int = 50) -> list[tuple[str, float]]:
+        """Return ranked (chunk_id, score) pairs without token packing."""
+
+    @abstractmethod
     def retrieve(self, query: str, token_budget: int) -> list[Chunk]:
         """Retrieve chunks for a query within the given token budget."""

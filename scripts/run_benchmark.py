@@ -18,7 +18,6 @@ import json
 import logging
 import sys
 import time
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -28,6 +27,7 @@ from hcr_core.corpus.embedder import ChunkEmbedder, EmbeddingCache
 from hcr_core.types.corpus import Chunk
 from hcr_core.types.metrics import BenchmarkResult
 from hcr_core.types.query import Query
+from tests.benchmark.baselines import RetrievalBaseline
 from tests.benchmark.baselines.bm25_baseline import BM25Baseline
 from tests.benchmark.baselines.flat_ce_baseline import FlatCrossEncoderBaseline
 from tests.benchmark.baselines.hybrid_baseline import HybridBaseline
@@ -75,21 +75,29 @@ def load_or_compute_embeddings(
 
 
 def evaluate_baseline(
-    baseline_name: str,
-    retrieve_fn: Callable[[str, int], list[Chunk]],
+    baseline: RetrievalBaseline,
     queries: list[Query],
     corpus_size: int,
     token_budget: int = 400,
 ) -> BenchmarkResult:
-    """Evaluate a single baseline and return metrics."""
-    all_retrieved_ids: list[list[str]] = []
+    """Evaluate a single baseline and return metrics.
+
+    IR metrics (nDCG@10, Recall@10, MRR) are computed on the full ranked
+    list from baseline.rank(), NOT on the token-packed result. Token
+    efficiency (mean_tokens_used) is computed on the packed result from
+    baseline.retrieve().
+    """
+    all_ranked_ids: list[list[str]] = []
     total_tokens = 0.0
 
     for query in queries:
-        chunks = retrieve_fn(query.text, token_budget)
-        chunk_ids = [c.id for c in chunks]
-        all_retrieved_ids.append(chunk_ids)
-        total_tokens += sum(c.token_count for c in chunks)
+        # Full ranked list for IR metrics
+        ranked = baseline.rank(query.text, top_k=50)
+        all_ranked_ids.append([chunk_id for chunk_id, _ in ranked])
+
+        # Token-packed result for budget metrics
+        packed = baseline.retrieve(query.text, token_budget)
+        total_tokens += sum(c.token_count for c in packed)
 
     n = len(queries)
     mean_tokens = total_tokens / n if n > 0 else 0.0
@@ -98,16 +106,14 @@ def evaluate_baseline(
     recall_scores: list[float] = []
     mrr_scores: list[float] = []
 
-    for query, retrieved_ids in zip(
-        queries, all_retrieved_ids, strict=True
-    ):
+    for query, ranked_ids in zip(queries, all_ranked_ids, strict=True):
         relevant = set(query.gold_chunk_ids)
-        ndcg_scores.append(ndcg_at_k(retrieved_ids, relevant, k=10))
-        recall_scores.append(recall_at_k(retrieved_ids, relevant, k=10))
-        mrr_scores.append(mrr(retrieved_ids, relevant))
+        ndcg_scores.append(ndcg_at_k(ranked_ids, relevant, k=10))
+        recall_scores.append(recall_at_k(ranked_ids, relevant, k=10))
+        mrr_scores.append(mrr(ranked_ids, relevant))
 
     return BenchmarkResult(
-        system_name=baseline_name,
+        system_name=baseline.name,
         corpus_size=corpus_size,
         query_count=n,
         epsilon_per_level=[],
@@ -193,9 +199,7 @@ def run_baselines(
     logger.info("Evaluating BM25...")
     bm25 = BM25Baseline(chunks)
     start = time.time()
-    bm25_result = evaluate_baseline(
-        "bm25", bm25.retrieve, queries, len(chunks)
-    )
+    bm25_result = evaluate_baseline(bm25, queries, len(chunks))
     _log_baseline_result("BM25", bm25_result, time.time() - start)
     results.append(bm25_result)
 
@@ -203,9 +207,7 @@ def run_baselines(
     logger.info("Evaluating Hybrid (BM25+Vector RRF)...")
     hybrid = HybridBaseline(chunks, embeddings, embedder=embedder)
     start = time.time()
-    hybrid_result = evaluate_baseline(
-        "hybrid-rrf", hybrid.retrieve, queries, len(chunks)
-    )
+    hybrid_result = evaluate_baseline(hybrid, queries, len(chunks))
     _log_baseline_result("Hybrid", hybrid_result, time.time() - start)
     results.append(hybrid_result)
 
@@ -215,9 +217,7 @@ def run_baselines(
         chunks, embeddings, embedder=embedder
     )
     start = time.time()
-    ce_result = evaluate_baseline(
-        "flat-ce", flat_ce.retrieve, queries, len(chunks)
-    )
+    ce_result = evaluate_baseline(flat_ce, queries, len(chunks))
     _log_baseline_result("Flat+CE", ce_result, time.time() - start)
     results.append(ce_result)
 

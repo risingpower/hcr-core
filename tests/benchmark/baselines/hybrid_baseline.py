@@ -34,6 +34,10 @@ class HybridBaseline(RetrievalBaseline):
     def name(self) -> str:
         return "hybrid-rrf"
 
+    def rank(self, query: str, top_k: int = 50) -> list[tuple[str, float]]:
+        query_emb = self._embedder.embed_text(query)
+        return self._index.search(query, query_emb, top_k=top_k)
+
     def retrieve(self, query: str, token_budget: int) -> list[Chunk]:
         query_emb = self._embedder.embed_text(query)
         scores = self._index.search(query, query_emb, top_k=50)

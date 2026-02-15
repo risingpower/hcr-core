@@ -35,6 +35,9 @@ class BM25Baseline(RetrievalBaseline):
     def name(self) -> str:
         return "bm25"
 
+    def rank(self, query: str, top_k: int = 50) -> list[tuple[str, float]]:
+        return self._index.search(query, top_k=top_k)
+
     def retrieve(self, query: str, token_budget: int) -> list[Chunk]:
         scores = self._index.search(query, top_k=50)
         return greedy_token_pack(self._chunks, scores, token_budget)

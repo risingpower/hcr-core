@@ -18,6 +18,9 @@ class MockBaseline(RetrievalBaseline):
     def name(self) -> str:
         return "mock-baseline"
 
+    def rank(self, query: str, top_k: int = 50) -> list[tuple[str, float]]:
+        return [(c.id, 1.0 / (i + 1)) for i, c in enumerate(self._chunks[:top_k])]
+
     def retrieve(self, query: str, token_budget: int) -> list[Chunk]:
         return self._chunks[:2]
 

@@ -45,12 +45,15 @@ class FlatCrossEncoderBaseline(RetrievalBaseline):
     def name(self) -> str:
         return "flat-ce"
 
-    def retrieve(self, query: str, token_budget: int) -> list[Chunk]:
-        # Step 1: hybrid pre-filter
+    def _score_candidates(
+        self, query: str
+    ) -> list[tuple[str, float]]:
+        """Pre-filter + cross-encoder rerank, return scored list."""
         query_emb = self._embedder.embed_text(query)
-        candidates = self._index.search(query, query_emb, top_k=self._pre_filter_k)
+        candidates = self._index.search(
+            query, query_emb, top_k=self._pre_filter_k
+        )
 
-        # Step 2: cross-encoder rerank
         cached_scores: dict[str, float] = {}
         pairs: list[tuple[str, str]] = []
         candidate_ids: list[str] = []
@@ -60,7 +63,6 @@ class FlatCrossEncoderBaseline(RetrievalBaseline):
             if chunk is None:
                 continue
 
-            # Check cache first
             if self._ce_cache is not None:
                 cached = self._ce_cache.load(query, chunk_id)
                 if cached is not None:
@@ -70,7 +72,6 @@ class FlatCrossEncoderBaseline(RetrievalBaseline):
             pairs.append((query, chunk.content))
             candidate_ids.append(chunk_id)
 
-        # Compute scores for uncached pairs
         ce_scores: dict[str, float] = dict(cached_scores)
 
         if pairs:
@@ -81,11 +82,17 @@ class FlatCrossEncoderBaseline(RetrievalBaseline):
             for cid, score in zip(candidate_ids, new_scores, strict=True):
                 ce_scores[cid] = score
 
-            # Cache new scores
             if self._ce_cache is not None:
-                for cid, score in zip(candidate_ids, new_scores, strict=True):
+                for cid, score in zip(
+                    candidate_ids, new_scores, strict=True
+                ):
                     self._ce_cache.save(query, cid, score)
 
-        # Step 3: sort by CE score, greedy pack
-        scored = sorted(ce_scores.items(), key=lambda x: x[1], reverse=True)
+        return sorted(ce_scores.items(), key=lambda x: x[1], reverse=True)
+
+    def rank(self, query: str, top_k: int = 50) -> list[tuple[str, float]]:
+        return self._score_candidates(query)[:top_k]
+
+    def retrieve(self, query: str, token_budget: int) -> list[Chunk]:
+        scored = self._score_candidates(query)
         return greedy_token_pack(self._chunks, scored, token_budget)
