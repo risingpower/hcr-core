@@ -102,6 +102,21 @@ Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode an
 
 Flat+CE is the kill baseline. HCR must beat nDCG@10=0.835 under token constraints to validate H1a/H1b.
 
+**First HCR results (2026-02-15, depth=2, branching=10):**
+
+| System | nDCG@10 | Recall@10 | MRR | MeanTok |
+|--------|---------|-----------|-----|---------|
+| **HCR** | **0.345** | **0.36** | **0.340** | 161 |
+
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| Epsilon L0 | 0.000 | ≤0.03 | Pass |
+| Epsilon L1 | 0.460 | ≤0.03 | **FAIL** |
+| Epsilon L2 | 0.640 | ≤0.03 | **FAIL** |
+| Sibling dist. | 0.690 | >0.15 | Pass |
+
+Root cause: tree too shallow (4 branches, depth=2). Routing summaries too coarse for specific queries. **NOT a kill signal** — need to test depth=3 and wider branching. Token efficiency works (161 vs 354).
+
 **Per-category analysis (2026-02-15):**
 
 | Category | N | CE nDCG@10 | CE-BM25 gap | HCR opportunity |

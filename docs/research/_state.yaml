@@ -10,7 +10,7 @@ last_session: "2026-02-15"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Per-category baseline analysis complete. HCR opportunity zones identified (dpi, comparative, ambiguous). Ready to build HCR tree on benchmark corpus."
+  focus: "First HCR evaluation complete. nDCG=0.345 vs flat+CE=0.835. Root cause identified: level 1 routing epsilon=0.46. Tree too shallow (depth=2, 4 branches). Need to test deeper/wider tree configs."
   blockers: []
 
 # Research briefs status
@@ -61,6 +61,23 @@ baseline_results:
     mean_tokens: 354
   notes: "IR metrics computed on full ranked list (top-50). Token metrics on 400-token packed result. Median chunk ~470 tokens, so packing yields 0-1 chunks per query. Flat+CE is kill baseline. Results in benchmark/results/baseline_results.json (gitignored)."
 
+# HCR results (2026-02-15, depth=2, branching=10)
+hcr_results:
+  config_v1:
+    tree_depth: 2
+    branching: 10
+    beam_width: 3
+    actual_branches: 4
+    ndcg_at_10: 0.345
+    recall_at_10: 0.36
+    mrr: 0.340
+    mean_tokens: 161
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.460
+    epsilon_level_2: 0.640
+    sibling_distinctiveness: 0.690
+    notes: "Level 1 routing is the bottleneck. 46% of queries routed to wrong branch. Cross-encoder gives all branches ~-11 score for specific queries — summaries too coarse. Need deeper tree or more branches."
+
 # Implementation phases completed
 implementation:
   phases_complete:
@@ -78,8 +95,11 @@ implementation:
     - "Baseline evaluation fix (separate ranking from token packing)"
     - "Baseline evaluation complete (BM25, hybrid, flat+CE)"
     - "Per-category baseline analysis (scripts/analyse_baselines.py)"
+    - "HCR baseline class + benchmark integration"
+    - "Cascade leaf scoring fix (use chunk embeddings for leaves)"
+    - "First HCR evaluation: nDCG=0.345, epsilon L1=0.46"
   test_count: 126
-  mypy_status: "clean (30 source files)"
+  mypy_status: "clean (32 source files)"
   ruff_status: "clean"
 
 # Hypothesis summary
@@ -91,48 +111,62 @@ hypotheses:
   retired: 1  # Original H1
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: "Baselines established. Per-category analysis reveals HCR opportunity zones: dpi (CE nDCG=0.615, CE adds nothing over BM25), comparative (CE nDCG=0.663), ambiguous (CE nDCG=0.565 but N=2). CE is perfect on entity_spanning, multi_hop, aggregation, temporal — HCR can only win on token efficiency there."
+  notes: |
+    First HCR run shows nDCG=0.345 vs flat+CE=0.835. NOT a kill signal yet —
+    the tree is too shallow (depth=2, 4 branches). Root cause is level 1
+    routing (epsilon=0.46). RB-003 predicted epsilon target of 0.01-0.02.
+    Current epsilon=0.46 means routing summaries are not discriminative enough.
+    Need to test deeper/wider configs before drawing hypothesis conclusions.
 
 # Knowledge accumulation
 knowledge:
-  patterns_discovered: 0
+  patterns_discovered: 1
   variants_discovered: 0
   contexts_documented: 0
   domains_documented: 0
   edge_cases: 0
+  notes: |
+    Pattern: "DPI summary blindness" — cross-encoder gives all branches
+    ~-11 score for specific detail queries because coarse routing summaries
+    don't contain the specific terms. Predicted by RB-005 failure mode #1.
 
 # Next actions (prioritized)
 next_actions:
-  - "Run HCR tree building on benchmark corpus: build tree, measure tree quality metrics (depth, branching factor, sibling distinctiveness)"
-  - "Run HCR traversal (beam search + collapsed-tree dual-path) on the 50 queries"
-  - "Compare HCR vs baselines — the kill criterion: does flat+CE beat HCR at full corpus with significance?"
-  - "Focus HCR analysis on opportunity categories: dpi (7q), comparative (5q), ambiguous (2q), single_branch (12q)"
-  - "If HCR shows promise: expand corpus and scale up (fail-fast experiment 2)"
-  - "Implement full mode with LLM sufficiency judge (run_benchmark.py --mode full)"
+  - "Test tree config A: depth=3, branching=8 (deeper tree, more routing levels)"
+  - "Test tree config B: depth=2, branching=15 (wider tree, more specific clusters)"
+  - "Compare both configs vs current depth=2/branch=10 baseline"
+  - "Investigate whether collapsed-tree path compensates for beam routing failures"
+  - "If improved routing: compare HCR vs baselines per-category (dpi, comparative, etc.)"
+  - "If still failing: consider summary quality improvements (more specific summaries)"
 
 # Notes for next session
 notes: |
-  Per-category baseline analysis complete. Key findings:
+  FIRST HCR EVALUATION COMPLETE. Key findings:
 
-  HCR OPPORTUNITY ZONES (where CE is weakest):
-  1. ambiguous (N=2): CE nDCG=0.565. All systems struggle. Low N = noisy.
-  2. dpi (N=7): CE nDCG=0.615. CE adds +0.006 over BM25 — reranking doesn't help.
-     Detail queries need structural routing, not better ranking.
-  3. comparative (N=5): CE nDCG=0.663. CE helps (+0.451 over BM25) but still weak.
-     Cross-branch comparison is structurally hard for flat retrieval.
-  4. single_branch (N=12): CE nDCG=0.792. CE adds only +0.023 over BM25.
+  HCR RESULTS (depth=2, branching=10):
+  - nDCG@10=0.345 vs flat+CE=0.835 (LOSE by 0.490)
+  - Recall@10=0.36 vs flat+CE=0.94
+  - Mean tokens: 161 vs 354 (HCR uses fewer — token efficiency works)
+  - Epsilon: L0=0.00, L1=0.46, L2=0.64
 
-  CE PERFECT CATEGORIES (HCR can only win on tokens):
-  - entity_spanning (N=10): CE=1.000
-  - multi_hop (N=5): CE=1.000
-  - aggregation (N=2): CE=1.000
-  - temporal (N=2): CE=1.000
+  ROOT CAUSE: Level 1 routing epsilon=0.46.
+  - Only 4 branches at depth=2 with 315 chunks → ~80 chunks per branch
+  - Routing summaries too coarse for specific queries
+  - Cross-encoder gives all branches ~-11 score for DPI queries
+  - Sibling distinctiveness is fine (0.69 > 0.15 kill threshold)
 
-  Strategy: HCR should target dpi + comparative (12 queries combined) for accuracy
-  wins, and match CE on the perfect categories while using fewer tokens.
+  BUG FIXED THIS SESSION:
+  - Cascade was giving leaves score=0.0 (no summary_embedding)
+  - Fixed by adding chunk_embeddings + chunk_texts fallback to ScoringCascade
+  - Improved from nDCG=0.007 to 0.345
 
-  Per-query results saved to benchmark/results/per_query_results.json.
-  Analysis script: python scripts/analyse_baselines.py
+  NEXT SESSION: Test both tree configs with fresh context:
+  1. Config A: depth=3, branching=8 (deeper, more routing levels)
+  2. Config B: depth=2, branching=15 (wider, more specific clusters)
+  Delete benchmark/results/hcr_tree.json before each run to rebuild.
+
+  Run command: python scripts/run_benchmark.py --mode hcr
+  Tree depth/branching set in run_benchmark.py:run_hcr() (lines ~324-326)
 
   Dependencies: pip install -e '.[dev]'
   Branch: 0215jc
