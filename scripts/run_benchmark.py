@@ -339,6 +339,17 @@ def run_hcr(
         tree_path.write_text(tree.model_dump_json(indent=2))
         logger.info("Tree cached to %s", tree_path)
 
+    # Re-embed summaries with enriched text (uses all RoutingSummary fields)
+    from hcr_core.tree.builder import summary_to_text
+
+    reembed_count = 0
+    for node in tree.nodes.values():
+        if node.summary is not None:
+            new_emb = embedder.embed_text(summary_to_text(node.summary))
+            node.summary_embedding = list(new_emb.tolist())
+            reembed_count += 1
+    logger.info("Re-embedded %d node summaries with enriched text", reembed_count)
+
     # Step 2: Tree quality metrics
     node_embeddings: dict[str, NDArray[np.float32]] = {}
     for node_id, node in tree.nodes.items():

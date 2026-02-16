@@ -36,9 +36,9 @@ class HCRBaseline(RetrievalBaseline):
         embeddings: NDArray[np.float32],
         embedder: ChunkEmbedder,
         cross_encoder: CrossEncoderScorer,
-        beam_width: int = 8,
-        pre_filter_k: int = 8,
-        final_k: int = 5,
+        beam_width: int = 5,
+        pre_filter_k: int = 5,
+        final_k: int = 3,
         diversity_lambda: float = 0.3,
     ) -> None:
         self._tree = tree

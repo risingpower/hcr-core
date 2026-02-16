@@ -46,11 +46,9 @@ class ScoringCascade:
     def _get_text(self, child: TreeNode) -> str | None:
         """Get text for cross-encoder scoring: summary or chunk content."""
         if child.summary is not None:
-            return (
-                f"Theme: {child.summary.theme}. "
-                f"Includes: {', '.join(child.summary.includes)}. "
-                f"Excludes: {', '.join(child.summary.excludes)}."
-            )
+            from hcr_core.tree.builder import summary_to_text
+
+            return summary_to_text(child.summary)
         if child.is_leaf and child.chunk_id is not None:
             return self._chunk_texts.get(child.chunk_id)
         return None

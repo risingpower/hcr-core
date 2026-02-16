@@ -189,9 +189,23 @@ class TreeBuilder:
 
     def _embed_summary(self, summary: RoutingSummary) -> list[float]:
         """Embed a routing summary for vector similarity scoring."""
-        summary_text = (
-            f"{summary.theme} {' '.join(summary.includes)} "
-            f"{' '.join(summary.key_terms)}"
-        )
-        emb = self._embedder.embed_text(summary_text)
+        emb = self._embedder.embed_text(summary_to_text(summary))
         return list(emb.tolist())
+
+
+def summary_to_text(summary: RoutingSummary) -> str:
+    """Convert a RoutingSummary to text for embedding.
+
+    Includes all discriminative fields: theme, includes, excludes,
+    key_entities, and key_terms.
+    """
+    parts = [summary.theme]
+    if summary.includes:
+        parts.append(f"Covers: {', '.join(summary.includes)}")
+    if summary.excludes:
+        parts.append(f"Not: {', '.join(summary.excludes)}")
+    if summary.key_entities:
+        parts.append(f"Entities: {', '.join(summary.key_entities)}")
+    if summary.key_terms:
+        parts.append(f"Terms: {', '.join(summary.key_terms)}")
+    return ". ".join(parts)
