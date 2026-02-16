@@ -322,8 +322,8 @@ def run_hcr(
         builder = TreeBuilder(
             embedder=embedder,
             llm=llm,
-            depth=2,
-            branching=10,
+            depth=3,
+            branching=8,
         )
         start = time.time()
         tree = builder.build(chunks, embeddings)

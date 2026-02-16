@@ -1,20 +1,24 @@
-"""Tree builder: clustering + summarization -> HCRTree."""
+"""Tree builder: hierarchical clustering + summarization -> HCRTree."""
 
 from __future__ import annotations
+
+import logging
 
 import numpy as np
 from numpy.typing import NDArray
 
 from hcr_core.corpus.embedder import ChunkEmbedder
 from hcr_core.llm.claude import ClaudeClient
-from hcr_core.tree.clustering import bisecting_kmeans
+from hcr_core.tree.clustering import ClusterNode, hierarchical_kmeans
 from hcr_core.tree.summarizer import generate_routing_summary
 from hcr_core.types.corpus import Chunk
 from hcr_core.types.tree import HCRTree, RoutingSummary, TreeNode
 
+logger = logging.getLogger(__name__)
+
 
 class TreeBuilder:
-    """Builds an HCR tree from chunks using clustering and LLM summarization."""
+    """Builds an HCR tree from chunks using hierarchical clustering and LLM summarization."""
 
     def __init__(
         self,
@@ -27,6 +31,12 @@ class TreeBuilder:
         self._llm = llm
         self._depth = depth
         self._branching = branching
+        self._node_counter = 0
+
+    def _next_id(self, prefix: str) -> str:
+        nid = f"{prefix}-{self._node_counter}"
+        self._node_counter += 1
+        return nid
 
     def build(
         self,
@@ -35,102 +45,153 @@ class TreeBuilder:
     ) -> HCRTree:
         """Build an HCR tree from chunks and their embeddings.
 
-        1. Cluster chunks using bisecting k-means
-        2. Create leaf nodes for each chunk
-        3. Create internal nodes for each cluster
-        4. Generate routing summaries via LLM
-        5. Embed summaries for traversal
+        1. Cluster chunks hierarchically using bisecting k-means
+        2. Recursively create tree nodes with LLM routing summaries
+        3. Embed summaries for traversal scoring
         """
-        chunk_ids = [c.id for c in chunks]
+        self._node_counter = 0
         chunk_map = {c.id: c for c in chunks}
+        chunk_ids = [c.id for c in chunks]
 
-        # Step 1: Cluster
-        clusters = bisecting_kmeans(
+        # Step 1: Hierarchical clustering
+        cluster_root = hierarchical_kmeans(
             embeddings, chunk_ids, self._branching, self._depth
         )
 
+        # Step 2: Recursively build tree nodes
         nodes: dict[str, TreeNode] = {}
-        node_counter = 0
+        root_id = self._build_subtree(
+            cluster_node=cluster_root,
+            chunk_map=chunk_map,
+            nodes=nodes,
+            level=0,
+        )
 
-        # Step 2: Create leaf nodes
-        leaf_nodes: dict[str, str] = {}  # chunk_id -> leaf_node_id
-        for chunk in chunks:
-            leaf_id = f"leaf-{node_counter}"
-            node_counter += 1
-            nodes[leaf_id] = TreeNode(
-                id=leaf_id,
-                level=self._depth,
-                parent_ids=[],
-                child_ids=[],
-                is_leaf=True,
-                chunk_id=chunk.id,
-            )
-            leaf_nodes[chunk.id] = leaf_id
+        # Compute actual depth from the tree
+        max_level = max(n.level for n in nodes.values())
 
-        # Step 3: Create internal nodes for clusters
-        branch_ids: list[str] = []
-        for cluster_chunk_ids in clusters:
-            branch_id = f"branch-{node_counter}"
-            node_counter += 1
+        return HCRTree(root_id=root_id, nodes=nodes, depth=max_level)
 
-            child_leaf_ids = [leaf_nodes[cid] for cid in cluster_chunk_ids if cid in leaf_nodes]
-            for child_id in child_leaf_ids:
-                nodes[child_id].parent_ids.append(branch_id)
+    def _build_subtree(
+        self,
+        cluster_node: ClusterNode,
+        chunk_map: dict[str, Chunk],
+        nodes: dict[str, TreeNode],
+        level: int,
+    ) -> str:
+        """Recursively build TreeNodes from a ClusterNode subtree.
+
+        Returns the node ID of the created subtree root.
+        """
+        if cluster_node.is_leaf_cluster:
+            # Leaf cluster: create leaf nodes for each chunk,
+            # plus a branch node if there are multiple chunks
+            if len(cluster_node.chunk_ids) == 1:
+                # Single chunk -> leaf node directly
+                chunk_id = cluster_node.chunk_ids[0]
+                leaf_id = self._next_id("leaf")
+                nodes[leaf_id] = TreeNode(
+                    id=leaf_id,
+                    level=level,
+                    parent_ids=[],
+                    child_ids=[],
+                    is_leaf=True,
+                    chunk_id=chunk_id,
+                )
+                return leaf_id
+
+            # Multiple chunks in this leaf cluster: create a branch
+            # with individual leaf children
+            branch_id = self._next_id("branch")
+            child_ids: list[str] = []
+            for chunk_id in cluster_node.chunk_ids:
+                leaf_id = self._next_id("leaf")
+                nodes[leaf_id] = TreeNode(
+                    id=leaf_id,
+                    level=level + 1,
+                    parent_ids=[branch_id],
+                    child_ids=[],
+                    is_leaf=True,
+                    chunk_id=chunk_id,
+                )
+                child_ids.append(leaf_id)
+
+            # Generate routing summary for this cluster
+            cluster_texts = [
+                chunk_map[cid].content
+                for cid in cluster_node.chunk_ids
+                if cid in chunk_map
+            ]
+            summary = generate_routing_summary(self._llm, cluster_texts)
+            summary_emb = self._embed_summary(summary)
 
             nodes[branch_id] = TreeNode(
                 id=branch_id,
-                level=self._depth - 1,
+                level=level,
                 parent_ids=[],
-                child_ids=child_leaf_ids,
+                child_ids=child_ids,
                 is_leaf=False,
+                summary=summary,
+                summary_embedding=summary_emb,
             )
-            branch_ids.append(branch_id)
+            return branch_id
 
-        # Step 4: Generate routing summaries
-        summaries: list[RoutingSummary] = []
-        for i, (branch_id, cluster_chunk_ids) in enumerate(
-            zip(branch_ids, clusters, strict=True)
-        ):
-            cluster_texts = [
-                chunk_map[cid].content
-                for cid in cluster_chunk_ids
-                if cid in chunk_map
-            ]
-            sibling_summaries = summaries[:i] if i > 0 else None
-            summary = generate_routing_summary(
-                self._llm, cluster_texts, sibling_summaries
+        # Internal cluster: recurse into children
+        branch_id = self._next_id("branch")
+        child_tree_ids: list[str] = []
+        sibling_summaries: list[RoutingSummary] = []
+
+        for child_cluster in cluster_node.children:
+            child_node_id = self._build_subtree(
+                cluster_node=child_cluster,
+                chunk_map=chunk_map,
+                nodes=nodes,
+                level=level + 1,
             )
-            summaries.append(summary)
+            child_tree_ids.append(child_node_id)
+            nodes[child_node_id].parent_ids.append(branch_id)
 
-            # Embed the summary
-            summary_text = (
-                f"{summary.theme} {' '.join(summary.includes)} "
-                f"{' '.join(summary.key_terms)}"
-            )
-            summary_emb = self._embedder.embed_text(summary_text)
-            nodes[branch_id].summary = summary
-            nodes[branch_id].summary_embedding = summary_emb.tolist()
+            # Collect sibling summaries for contrastive generation
+            child_node = nodes[child_node_id]
+            if child_node.summary is not None:
+                sibling_summaries.append(child_node.summary)
 
-        # Step 5: Create root node
-        root_id = f"root-{node_counter}"
-        for bid in branch_ids:
-            nodes[bid].parent_ids.append(root_id)
-
-        root_summary = RoutingSummary(
-            theme="Root",
-            includes=["all topics"],
-            excludes=[],
-            key_entities=[],
-            key_terms=[],
+        # Generate routing summary for this internal node
+        cluster_texts = [
+            chunk_map[cid].content
+            for cid in cluster_node.chunk_ids
+            if cid in chunk_map
+        ]
+        summary = generate_routing_summary(
+            self._llm, cluster_texts, sibling_summaries or None
         )
+        summary_emb = self._embed_summary(summary)
 
-        nodes[root_id] = TreeNode(
-            id=root_id,
-            level=0,
+        nodes[branch_id] = TreeNode(
+            id=branch_id,
+            level=level,
             parent_ids=[],
-            child_ids=branch_ids,
+            child_ids=child_tree_ids,
             is_leaf=False,
-            summary=root_summary,
+            summary=summary,
+            summary_embedding=summary_emb,
         )
 
-        return HCRTree(root_id=root_id, nodes=nodes, depth=self._depth)
+        logger.info(
+            "Built node %s at level %d with %d children (%d chunks)",
+            branch_id,
+            level,
+            len(child_tree_ids),
+            len(cluster_node.chunk_ids),
+        )
+
+        return branch_id
+
+    def _embed_summary(self, summary: RoutingSummary) -> list[float]:
+        """Embed a routing summary for vector similarity scoring."""
+        summary_text = (
+            f"{summary.theme} {' '.join(summary.includes)} "
+            f"{' '.join(summary.key_terms)}"
+        )
+        emb = self._embedder.embed_text(summary_text)
+        return list(emb.tolist())

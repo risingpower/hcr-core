@@ -38,19 +38,22 @@ class TestBisectingKmeans:
 
     def test_respects_max_depth(self) -> None:
         embeddings, chunk_ids = self._make_clustered_embeddings()
+        clusters_d0 = bisecting_kmeans(
+            embeddings, chunk_ids, target_branching=5, max_depth=0
+        )
         clusters_d1 = bisecting_kmeans(
-            embeddings, chunk_ids, target_branching=10, max_depth=1
+            embeddings, chunk_ids, target_branching=5, max_depth=1
         )
-        clusters_d2 = bisecting_kmeans(
-            embeddings, chunk_ids, target_branching=5, max_depth=2
-        )
-        # Depth 1 should have fewer clusters
-        assert len(clusters_d1) <= len(clusters_d2)
+        # Depth 0 should not split at all
+        assert len(clusters_d0) == 1
+        # Depth 1 with branching=5 should split into multiple clusters
+        assert len(clusters_d1) > 1
 
     def test_finds_two_clusters(self) -> None:
         embeddings, chunk_ids = self._make_clustered_embeddings()
+        # With branching=2, should cleanly split the two groups
         clusters = bisecting_kmeans(
-            embeddings, chunk_ids, target_branching=10, max_depth=1
+            embeddings, chunk_ids, target_branching=2, max_depth=1
         )
         assert len(clusters) == 2
         # Each cluster should roughly contain its group

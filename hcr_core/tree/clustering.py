@@ -1,8 +1,29 @@
-"""Bisecting k-means clustering for tree construction."""
+"""K-means clustering for hierarchical tree construction."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.cluster import KMeans
+
+
+@dataclass
+class ClusterNode:
+    """A node in the hierarchical cluster tree.
+
+    Leaf cluster nodes hold chunk_ids directly.
+    Internal cluster nodes hold children (sub-clusters).
+    """
+
+    chunk_ids: list[str]
+    embeddings: NDArray[np.float32]
+    children: list[ClusterNode] = field(default_factory=list)
+
+    @property
+    def is_leaf_cluster(self) -> bool:
+        return len(self.children) == 0
 
 
 def bisecting_kmeans(
@@ -11,46 +32,77 @@ def bisecting_kmeans(
     target_branching: int = 10,
     max_depth: int = 2,
 ) -> list[list[str]]:
-    """Bisecting k-means: recursively split clusters top-down.
-
-    Args:
-        embeddings: (N, D) L2-normalized embeddings.
-        chunk_ids: Corresponding chunk IDs.
-        target_branching: Max children per node (split until cluster <= this).
-        max_depth: Maximum recursion depth.
+    """Flat clustering output for backwards compatibility.
 
     Returns:
         List of clusters, each a list of chunk_ids.
     """
-    if len(chunk_ids) <= 1 or max_depth == 0:
-        return [chunk_ids]
+    root = hierarchical_kmeans(embeddings, chunk_ids, target_branching, max_depth)
+    return _collect_leaves(root)
 
-    if len(chunk_ids) <= target_branching:
-        return [chunk_ids]
 
-    # Split into 2
-    indices = list(range(len(chunk_ids)))
-    sub_embeddings = embeddings[indices]
-
-    kmeans = KMeans(n_clusters=2, random_state=42, n_init=10)
-    labels: NDArray[np.int64] = kmeans.fit_predict(sub_embeddings)
-
-    cluster_0_ids = [chunk_ids[i] for i in range(len(chunk_ids)) if labels[i] == 0]
-    cluster_1_ids = [chunk_ids[i] for i in range(len(chunk_ids)) if labels[i] == 1]
-    cluster_0_embs = embeddings[[i for i in range(len(chunk_ids)) if labels[i] == 0]]
-    cluster_1_embs = embeddings[[i for i in range(len(chunk_ids)) if labels[i] == 1]]
-
-    # Handle degenerate splits
-    if len(cluster_0_ids) == 0 or len(cluster_1_ids) == 0:
-        return [chunk_ids]
-
-    # Recurse
+def _collect_leaves(node: ClusterNode) -> list[list[str]]:
+    """Collect leaf clusters from a ClusterNode tree."""
+    if node.is_leaf_cluster:
+        return [node.chunk_ids]
     result: list[list[str]] = []
-    result.extend(
-        bisecting_kmeans(cluster_0_embs, cluster_0_ids, target_branching, max_depth - 1)
-    )
-    result.extend(
-        bisecting_kmeans(cluster_1_embs, cluster_1_ids, target_branching, max_depth - 1)
-    )
-
+    for child in node.children:
+        result.extend(_collect_leaves(child))
     return result
+
+
+def hierarchical_kmeans(
+    embeddings: NDArray[np.float32],
+    chunk_ids: list[str],
+    target_branching: int = 10,
+    max_depth: int = 2,
+) -> ClusterNode:
+    """Top-down k-ary clustering that preserves hierarchical structure.
+
+    At each level, splits into min(target_branching, N) clusters using k-means.
+    Recurses until max_depth reached or clusters are small enough.
+
+    Args:
+        embeddings: (N, D) L2-normalized embeddings.
+        chunk_ids: Corresponding chunk IDs.
+        target_branching: Target number of children per node.
+        max_depth: Number of internal levels to build.
+
+    Returns:
+        Root ClusterNode with hierarchical children.
+    """
+    root = ClusterNode(chunk_ids=chunk_ids, embeddings=embeddings)
+
+    if len(chunk_ids) <= 1 or max_depth == 0:
+        return root
+
+    # Don't split if already small enough
+    if len(chunk_ids) <= target_branching:
+        return root
+
+    # Split into k clusters
+    k = min(target_branching, len(chunk_ids))
+    kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+    labels: NDArray[np.int64] = kmeans.fit_predict(embeddings)
+
+    # Group by cluster label
+    unique_labels = sorted(set(int(lab) for lab in labels))
+
+    for label in unique_labels:
+        mask = labels == label
+        child_ids = [chunk_ids[i] for i in range(len(chunk_ids)) if mask[i]]
+        child_embs = embeddings[mask]
+
+        if len(child_ids) == 0:
+            continue
+
+        child = hierarchical_kmeans(
+            child_embs, child_ids, target_branching, max_depth - 1
+        )
+        root.children.append(child)
+
+    # If k-means produced only 1 non-empty cluster, don't create a useless level
+    if len(root.children) <= 1:
+        root.children = []
+
+    return root
