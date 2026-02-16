@@ -92,7 +92,17 @@ class ScoringCascade:
         scored.sort(key=lambda x: x[1], reverse=True)
         top_candidates = scored[: self._pre_filter_k]
 
-        # Stage 2: Cross-encoder rerank
+        # Skip CE for internal nodes — MS-MARCO CE is net negative on
+        # structured routing metadata (scores deeply negative for all
+        # candidates, flips correct cosine decisions to wrong).
+        # Only use CE when children are leaves with actual chunk content.
+        children_are_leaves = all(
+            tree.nodes[cid].is_leaf for cid, _ in top_candidates
+        )
+        if not children_are_leaves:
+            return top_candidates[: self._final_k]
+
+        # Stage 2: Cross-encoder rerank (leaf nodes only)
         texts = []
         ids = []
         for cid, _ in top_candidates:
