@@ -371,26 +371,49 @@ knowledge:
 
 # Next actions (prioritized)
 next_actions:
+  # Phase A: Small-corpus ceiling (ADR-002)
   - id: 1
-    action: "Try beam=8 with mpnet rebuilt tree (ceiling test)"
+    phase: A
+    action: "Beam=8 ceiling test on mpnet rebuilt tree"
     details: |
       v10 (beam=5, mpnet rebuilt) gives nDCG=0.540 but L1 ε=0.24.
-      Beam=8 ceiling test with MiniLM gave nDCG=0.509 and L1 ε=0.14.
-      Beam=8 with mpnet rebuilt tree should show if routing ceiling
-      is higher. Expected: nDCG ~0.60-0.65, L1 ε ~0.14-0.18.
+      Beam=8 ceiling on MiniLM gave nDCG=0.509 and L1 ε=0.14.
+      Config change only — update hcr_baseline.py beam_width=8,
+      pre_filter_k=8, final_k=5. No tree rebuild needed.
+      Success: nDCG > 0.65. Kill: nDCG < 0.60.
   - id: 2
-    action: "Investigate L4 epsilon (0.78-0.81 across all configs)"
+    phase: A
+    action: "BM25 hybrid routing on summary key_terms/key_entities"
     details: |
-      Leaf-level miss rate is ~80% even at beam=8 and across all summary
-      quality improvements. Leaf CE scoring is active — may be hurting.
-      Or chunk embeddings are poor at this granularity. Needs diagnosis.
+      Original design (RB-002/003) called for BM25+dense pre-filter.
+      Never implemented for routing. Summary nodes have key_terms and
+      key_entities — build BM25 index over these per-level, combine
+      with cosine scores (RRF or weighted sum) for routing decisions.
+      This is the last untested lever from the original architecture.
+      Implement in cascade.py alongside cosine scoring.
   - id: 3
-    action: "Consider architectural pivot if embedding model doesn't help"
+    phase: A
+    action: "Phase A decision point"
     details: |
-      If stronger embeddings don't close the gap to 0.835, the hierarchical
-      routing approach may have a fundamental ceiling with dense embeddings.
-      Potential pivots: BM25 hybrid routing (add keyword matching at each
-      level), or collapsed-tree-first with beam verification.
+      If either experiment breaks nDCG=0.65 → proceed to Phase B
+      with that approach as the HCR config.
+      If neither breaks 0.65 → dense+BM25 routing has a ceiling at
+      small scale. Proceed to Phase B anyway (scale is the real test).
+  # Phase B: Scale-up validation (ADR-002)
+  - id: 4
+    phase: B
+    action: "Build 50K-100K chunk corpus per RB-006 design"
+    details: |
+      GitLab handbook (~30K chunks) + synthetic injectors + additional
+      sources. Generate stratified query suite (300-400 queries).
+      LLM costs ~$15-30. This is the designed validation scale.
+  - id: 5
+    phase: B
+    action: "Full fail-fast sequence at scale (RB-006)"
+    details: |
+      Rerun baselines + best HCR config at scale. Measure all 7 core
+      metrics. Apply kill criteria. This is the definitive test of
+      H1a/H1b/H1c.
 
 # Notes for next session
 notes: |

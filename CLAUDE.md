@@ -245,7 +245,8 @@ tests/                           # Test suite (Phase 1+)
 
 ## Decisions Made
 
-- **ADR-001 (pending):** Go/no-go on Phase 1 — decision is GO based on six research briefs with no showstoppers. Benchmark design convergent across 4 sources. First implementation deliverable: benchmark infrastructure.
+- **ADR-001:** Go/no-go on Phase 1 — decision is GO based on six research briefs with no showstoppers. Benchmark design convergent across 4 sources. First implementation deliverable: benchmark infrastructure.
+- **ADR-002:** Validation checkpoint after 10 HCR configs on 315-chunk corpus. Best nDCG=0.540, kill baseline=0.835. Decision: **Phase A** (2 ceiling experiments: beam=8 mpnet, BM25 hybrid routing) then **Phase B** (scale up to 50K-100K chunks per RB-006). Scale is a confound — HCR designed for large corpora, tested on small.
 
 ## Open Questions
 
