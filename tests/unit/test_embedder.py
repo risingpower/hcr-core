@@ -15,7 +15,7 @@ def _make_chunk(chunk_id: str, content: str) -> Chunk:
 class TestEmbeddingCache:
     def test_save_and_load(self, tmp_path: Path) -> None:
         cache = EmbeddingCache(cache_dir=tmp_path)
-        embeddings = np.random.rand(5, 384).astype(np.float32)
+        embeddings = np.random.rand(5, 768).astype(np.float32)
         chunk_ids = [f"c-{i}" for i in range(5)]
         cache.save("test-corpus", chunk_ids, embeddings)
 
@@ -31,14 +31,14 @@ class TestEmbeddingCache:
     def test_has_cache(self, tmp_path: Path) -> None:
         cache = EmbeddingCache(cache_dir=tmp_path)
         assert not cache.has("test")
-        embeddings = np.random.rand(3, 384).astype(np.float32)
+        embeddings = np.random.rand(3, 768).astype(np.float32)
         cache.save("test", ["a", "b", "c"], embeddings)
         assert cache.has("test")
 
 
 class TestChunkEmbedder:
     def test_embed_chunks_returns_correct_shape(self) -> None:
-        embedder = ChunkEmbedder(model_name="all-MiniLM-L6-v2")
+        embedder = ChunkEmbedder(model_name="all-mpnet-base-v2")
         chunks = [
             _make_chunk("c1", "Hello world"),
             _make_chunk("c2", "Another sentence"),
@@ -49,14 +49,14 @@ class TestChunkEmbedder:
         assert embeddings.shape[1] > 0  # embedding dimension
 
     def test_embed_returns_normalized_vectors(self) -> None:
-        embedder = ChunkEmbedder(model_name="all-MiniLM-L6-v2")
+        embedder = ChunkEmbedder(model_name="all-mpnet-base-v2")
         chunks = [_make_chunk("c1", "Test normalization")]
         _, embeddings = embedder.embed(chunks)
         norms = np.linalg.norm(embeddings, axis=1)
         np.testing.assert_allclose(norms, 1.0, atol=1e-5)
 
     def test_embed_single_text(self) -> None:
-        embedder = ChunkEmbedder(model_name="all-MiniLM-L6-v2")
+        embedder = ChunkEmbedder(model_name="all-mpnet-base-v2")
         emb = embedder.embed_text("test query")
         assert emb.ndim == 1
         assert len(emb) > 0
@@ -65,7 +65,7 @@ class TestChunkEmbedder:
 
     def test_embed_with_cache(self, tmp_path: Path) -> None:
         cache = EmbeddingCache(cache_dir=tmp_path)
-        embedder = ChunkEmbedder(model_name="all-MiniLM-L6-v2", cache=cache)
+        embedder = ChunkEmbedder(model_name="all-mpnet-base-v2", cache=cache)
         chunks = [_make_chunk("c1", "Cached embedding")]
         ids1, embs1 = embedder.embed(chunks, corpus_key="test-cache")
         ids2, embs2 = embedder.embed(chunks, corpus_key="test-cache")

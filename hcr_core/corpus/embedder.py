@@ -49,7 +49,7 @@ class ChunkEmbedder:
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "all-mpnet-base-v2",
         cache: EmbeddingCache | None = None,
     ) -> None:
         self._model: SentenceTransformer = SentenceTransformer(model_name)

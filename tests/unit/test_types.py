@@ -162,7 +162,7 @@ class TestTreeNode:
             key_entities=["CTO"],
             key_terms=["CI/CD"],
         )
-        emb = np.zeros(384, dtype=np.float32).tolist()
+        emb = np.zeros(768, dtype=np.float32).tolist()
         node = TreeNode(
             id="node-0",
             level=1,
@@ -175,7 +175,7 @@ class TestTreeNode:
         assert node.is_leaf is False
         assert node.summary is not None
         assert node.summary_embedding is not None
-        assert len(node.summary_embedding) == 384
+        assert len(node.summary_embedding) == 768
 
     def test_leaf_requires_chunk_id(self) -> None:
         with pytest.raises(ValidationError):

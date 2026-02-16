@@ -47,7 +47,7 @@ def _make_test_chunks() -> list[Chunk]:
 def _make_embedder() -> ChunkEmbedder:  # noqa: F821
     from hcr_core.corpus.embedder import ChunkEmbedder
 
-    return ChunkEmbedder(model_name="all-MiniLM-L6-v2")
+    return ChunkEmbedder(model_name="all-mpnet-base-v2")
 
 
 def _make_embeddings(
@@ -55,7 +55,7 @@ def _make_embeddings(
 ) -> tuple[np.ndarray, ChunkEmbedder]:  # noqa: F821
     from hcr_core.corpus.embedder import ChunkEmbedder
 
-    embedder = ChunkEmbedder(model_name="all-MiniLM-L6-v2")
+    embedder = ChunkEmbedder(model_name="all-mpnet-base-v2")
     _, embs = embedder.embed(chunks)
     return embs, embedder
 

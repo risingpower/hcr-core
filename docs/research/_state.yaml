@@ -10,7 +10,7 @@ last_session: "2026-02-16"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Summary text experiments complete (v6-v8). Enriched embedding text gives +17% nDCG. Prompt engineering and content snippets are washes — MiniLM embedding space is saturated at nDCG ~0.49. Next: try stronger embedding model or different architecture approach."
+  focus: "mpnet (768-dim) tested — WORSE than MiniLM (-8.7% nDCG). Tree was clustered in MiniLM space, misaligned with mpnet. Need to rebuild tree with mpnet embeddings, or try E5-large/BGE with tree rebuild."
   blockers: []
 
 # Research briefs status
@@ -187,6 +187,23 @@ hcr_results:
     epsilon_level_4: 0.778
     sibling_distinctiveness: 0.489
     notes: "Content snippets (first 200 chars) added to summaries. Rebuilt tree. No meaningful improvement. MiniLM embedding space saturated."
+  config_v9_mpnet:
+    tree_depth: 3
+    branching: 8
+    beam_width: 5
+    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
+    embedding_model: "all-mpnet-base-v2 (768-dim)"
+    ndcg_at_10: 0.450
+    recall_at_10: 0.54
+    mrr: 0.426
+    mean_tokens: 296
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.180
+    epsilon_level_2: 0.380
+    epsilon_level_3: 0.480
+    epsilon_level_4: 0.763
+    sibling_distinctiveness: 0.455
+    notes: "mpnet 768-dim WORSE than MiniLM 384-dim. nDCG -8.7% vs v6. L1 ε worse (0.18 vs 0.16). Sibling distinctiveness dropped 0.512→0.455. Tree structure was clustered in MiniLM space — mpnet embedding space is misaligned. Confirms tree must be rebuilt for new embedding model."
 
 # Summary quality experiment (2026-02-16, session 4)
 summary_quality_experiment:
@@ -287,6 +304,7 @@ implementation:
     - "Contrastive prompts: more specific terms/entities (rebuilt tree)"
     - "Content snippets: first 200 chars in summary embeddings (rebuilt tree)"
     - "Embedding ceiling identified: MiniLM saturated at nDCG ~0.49"
+    - "mpnet swap (no rebuild): nDCG=0.450, worse than MiniLM — tree/embedding alignment matters"
   test_count: 126
   mypy_status: "clean (30 source files)"
   ruff_status: "clean"
@@ -301,11 +319,13 @@ hypotheses:
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
   notes: |
-    Eight HCR configs tested (v1-v8). Beam sweep confirmed tree structure is
+    Nine HCR configs tested (v1-v9). Beam sweep confirmed tree structure is
     sound. Summary text experiments (v6-v8) showed enriched embedding text
     helps (+17%) but MiniLM embedding space saturates at nDCG ~0.49.
-    Best config: v6 (beam=5, enriched embed, nDCG=0.493, 249 tokens).
-    Kill baseline: 0.835. Gap likely requires stronger embedding model.
+    mpnet (v9) swap without tree rebuild was WORSE (-8.7%) — tree/embedding
+    alignment is critical. Best config: v6 (beam=5, enriched embed,
+    nDCG=0.493, 249 tokens). Kill baseline: 0.835. Next: rebuild tree
+    with mpnet embeddings, or try different approach entirely.
     Token efficiency confirmed (249-297 vs 354 baseline).
 
 # Knowledge accumulation
@@ -334,15 +354,13 @@ knowledge:
 # Next actions (prioritized)
 next_actions:
   - id: 1
-    action: "Try stronger embedding model for routing"
+    action: "Rebuild tree with mpnet embeddings and re-test"
     details: |
-      MiniLM (384-dim, all-MiniLM-L6-v2) is saturated at nDCG ~0.49.
-      Options (in order of effort):
-      a) all-mpnet-base-v2 (768-dim, same SentenceTransformers API) — drop-in
-      b) E5-large or BGE-large (1024-dim) — needs adapter for embed API
-      c) Cohere embed-v3 (1024-dim) — API call, higher quality but cost
-      Only need to re-embed summaries (cached tree has text), no rebuild.
-      Target: L1 ε ≤ 0.10 with beam=5, nDCG > 0.60.
+      mpnet swap without rebuild scored WORSE (nDCG=0.450 vs 0.493).
+      Root cause: tree was clustered in MiniLM embedding space. Sibling
+      distinctiveness dropped 0.512→0.455 — branches aren't distinct in
+      mpnet space. MUST rebuild tree with mpnet to get fair comparison.
+      If still no improvement, try E5-large or BM25 hybrid routing.
   - id: 2
     action: "Investigate L4 epsilon (0.78-0.81 across all configs)"
     details: |
@@ -359,7 +377,22 @@ next_actions:
 
 # Notes for next session
 notes: |
-  SESSION 2026-02-16 (session 4) SUMMARY:
+  SESSION 2026-02-16 (session 5) SUMMARY:
+
+  MPNET EMBEDDING MODEL SWAP (v9):
+  - Swapped all-MiniLM-L6-v2 (384-dim) → all-mpnet-base-v2 (768-dim)
+  - No tree rebuild — re-embedded summaries only (as per task spec)
+  - Result: nDCG=0.450 (-8.7% vs v6), L1 ε=0.18 (worse than 0.16)
+  - Sibling distinctiveness: 0.455 (down from 0.512 with MiniLM)
+  - ROOT CAUSE: Tree was clustered in MiniLM space. The branch structure
+    (which nodes are siblings) was optimized for 384-dim MiniLM embeddings.
+    mpnet embeds the same summaries into a different region of its 768-dim
+    space, making siblings LESS distinct, not more. This is the "embedding
+    alignment" problem — you can't swap the embedding model without rebuilding
+    the tree. New pattern: "Tree-embedding alignment dependency."
+  - NEXT: Rebuild tree with mpnet to get a fair comparison.
+
+  PREVIOUS SESSION (session 4):
 
   THREE SUMMARY TEXT EXPERIMENTS:
   1. Enriched embedding text (v6): summary_to_text() includes all fields
