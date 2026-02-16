@@ -13,6 +13,7 @@ class RoutingSummary(BaseModel):
     excludes: list[str]
     key_entities: list[str]
     key_terms: list[str]
+    content_snippet: str = ""
 
     @field_validator("theme")
     @classmethod

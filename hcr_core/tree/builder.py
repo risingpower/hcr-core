@@ -123,6 +123,7 @@ class TreeBuilder:
                 if cid in chunk_map
             ]
             summary = generate_routing_summary(self._llm, cluster_texts)
+            summary.content_snippet = _extract_snippet(cluster_texts)
             summary_emb = self._embed_summary(summary)
 
             nodes[branch_id] = TreeNode(
@@ -165,6 +166,7 @@ class TreeBuilder:
         summary = generate_routing_summary(
             self._llm, cluster_texts, sibling_summaries or None
         )
+        summary.content_snippet = _extract_snippet(cluster_texts)
         summary_emb = self._embed_summary(summary)
 
         nodes[branch_id] = TreeNode(
@@ -193,11 +195,30 @@ class TreeBuilder:
         return list(emb.tolist())
 
 
+def _extract_snippet(cluster_texts: list[str], max_chars: int = 200) -> str:
+    """Extract a representative content snippet from cluster texts.
+
+    Takes the first sentence(s) from the first chunk, up to max_chars.
+    Gives the embedding model real content terms to work with.
+    """
+    if not cluster_texts:
+        return ""
+    # Take from first chunk — it's representative of the cluster
+    text = cluster_texts[0].strip()
+    if len(text) <= max_chars:
+        return text
+    # Cut at last space before limit to avoid mid-word
+    cut = text[:max_chars].rfind(" ")
+    if cut > 0:
+        return text[:cut]
+    return text[:max_chars]
+
+
 def summary_to_text(summary: RoutingSummary) -> str:
     """Convert a RoutingSummary to text for embedding.
 
     Includes all discriminative fields: theme, includes, excludes,
-    key_entities, and key_terms.
+    key_entities, key_terms, and content_snippet.
     """
     parts = [summary.theme]
     if summary.includes:
@@ -208,4 +229,6 @@ def summary_to_text(summary: RoutingSummary) -> str:
         parts.append(f"Entities: {', '.join(summary.key_entities)}")
     if summary.key_terms:
         parts.append(f"Terms: {', '.join(summary.key_terms)}")
+    if summary.content_snippet:
+        parts.append(f"Sample: {summary.content_snippet}")
     return ". ".join(parts)
