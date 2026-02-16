@@ -10,7 +10,7 @@ last_session: "2026-02-16"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "mpnet (768-dim) tested — WORSE than MiniLM (-8.7% nDCG). Tree was clustered in MiniLM space, misaligned with mpnet. Need to rebuild tree with mpnet embeddings, or try E5-large/BGE with tree rebuild."
+  focus: "mpnet with rebuilt tree (v10) is BEST nDCG so far: 0.540 (+9.5% vs v6). But routing epsilon worse (0.24 vs 0.16). Gains from leaf scoring, not routing. Kill baseline 0.835 still far. Try beam=8 with mpnet tree, or BM25 hybrid routing."
   blockers: []
 
 # Research briefs status
@@ -204,6 +204,24 @@ hcr_results:
     epsilon_level_4: 0.763
     sibling_distinctiveness: 0.455
     notes: "mpnet 768-dim WORSE than MiniLM 384-dim. nDCG -8.7% vs v6. L1 ε worse (0.18 vs 0.16). Sibling distinctiveness dropped 0.512→0.455. Tree structure was clustered in MiniLM space — mpnet embedding space is misaligned. Confirms tree must be rebuilt for new embedding model."
+  config_v10_mpnet_rebuilt:
+    tree_depth: 3
+    branching: 8
+    beam_width: 5
+    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
+    embedding_model: "all-mpnet-base-v2 (768-dim)"
+    tree_rebuilt: true
+    ndcg_at_10: 0.540
+    recall_at_10: 0.62
+    mrr: 0.516
+    mean_tokens: 231
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.240
+    epsilon_level_2: 0.420
+    epsilon_level_3: 0.520
+    epsilon_level_4: 0.750
+    sibling_distinctiveness: 0.470
+    notes: "mpnet with rebuilt tree. BEST nDCG so far (+9.5% vs v6). Recall@10 0.62 (best). Tokens 231 (best). BUT routing epsilon WORSE (L1 0.24 vs 0.16). nDCG gain comes from better leaf scoring (L4 ε 0.75 vs 0.81) and richer embeddings downstream, not from routing precision. Kill baseline still 0.835."
 
 # Summary quality experiment (2026-02-16, session 4)
 summary_quality_experiment:
@@ -305,6 +323,7 @@ implementation:
     - "Content snippets: first 200 chars in summary embeddings (rebuilt tree)"
     - "Embedding ceiling identified: MiniLM saturated at nDCG ~0.49"
     - "mpnet swap (no rebuild): nDCG=0.450, worse than MiniLM — tree/embedding alignment matters"
+    - "mpnet with rebuilt tree (v10): nDCG=0.540, BEST result. Routing worse but leaf scoring better."
   test_count: 126
   mypy_status: "clean (30 source files)"
   ruff_status: "clean"
@@ -319,14 +338,13 @@ hypotheses:
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
   notes: |
-    Nine HCR configs tested (v1-v9). Beam sweep confirmed tree structure is
-    sound. Summary text experiments (v6-v8) showed enriched embedding text
-    helps (+17%) but MiniLM embedding space saturates at nDCG ~0.49.
-    mpnet (v9) swap without tree rebuild was WORSE (-8.7%) — tree/embedding
-    alignment is critical. Best config: v6 (beam=5, enriched embed,
-    nDCG=0.493, 249 tokens). Kill baseline: 0.835. Next: rebuild tree
-    with mpnet embeddings, or try different approach entirely.
-    Token efficiency confirmed (249-297 vs 354 baseline).
+    Ten HCR configs tested (v1-v10). mpnet with rebuilt tree (v10) is BEST:
+    nDCG=0.540 (+9.5% vs v6), Recall@10=0.62, MeanTok=231. But routing
+    epsilon WORSE (L1 0.24 vs 0.16). The nDCG gain comes from mpnet's
+    better leaf-level discrimination (L4 ε 0.75 vs 0.81), not routing.
+    Kill baseline: 0.835. Gap is 0.295 — still far. Token efficiency
+    excellent (231 vs 354 baseline). Next levers: wider beam on mpnet
+    tree, or BM25 hybrid routing to address routing epsilon.
 
 # Knowledge accumulation
 knowledge:
@@ -354,13 +372,12 @@ knowledge:
 # Next actions (prioritized)
 next_actions:
   - id: 1
-    action: "Rebuild tree with mpnet embeddings and re-test"
+    action: "Try beam=8 with mpnet rebuilt tree (ceiling test)"
     details: |
-      mpnet swap without rebuild scored WORSE (nDCG=0.450 vs 0.493).
-      Root cause: tree was clustered in MiniLM embedding space. Sibling
-      distinctiveness dropped 0.512→0.455 — branches aren't distinct in
-      mpnet space. MUST rebuild tree with mpnet to get fair comparison.
-      If still no improvement, try E5-large or BM25 hybrid routing.
+      v10 (beam=5, mpnet rebuilt) gives nDCG=0.540 but L1 ε=0.24.
+      Beam=8 ceiling test with MiniLM gave nDCG=0.509 and L1 ε=0.14.
+      Beam=8 with mpnet rebuilt tree should show if routing ceiling
+      is higher. Expected: nDCG ~0.60-0.65, L1 ε ~0.14-0.18.
   - id: 2
     action: "Investigate L4 epsilon (0.78-0.81 across all configs)"
     details: |
@@ -379,18 +396,27 @@ next_actions:
 notes: |
   SESSION 2026-02-16 (session 5) SUMMARY:
 
-  MPNET EMBEDDING MODEL SWAP (v9):
-  - Swapped all-MiniLM-L6-v2 (384-dim) → all-mpnet-base-v2 (768-dim)
-  - No tree rebuild — re-embedded summaries only (as per task spec)
-  - Result: nDCG=0.450 (-8.7% vs v6), L1 ε=0.18 (worse than 0.16)
-  - Sibling distinctiveness: 0.455 (down from 0.512 with MiniLM)
-  - ROOT CAUSE: Tree was clustered in MiniLM space. The branch structure
-    (which nodes are siblings) was optimized for 384-dim MiniLM embeddings.
-    mpnet embeds the same summaries into a different region of its 768-dim
-    space, making siblings LESS distinct, not more. This is the "embedding
-    alignment" problem — you can't swap the embedding model without rebuilding
-    the tree. New pattern: "Tree-embedding alignment dependency."
-  - NEXT: Rebuild tree with mpnet to get a fair comparison.
+  TWO MPNET EXPERIMENTS:
+  1. v9 — mpnet swap WITHOUT tree rebuild: nDCG=0.450 (-8.7% vs v6)
+     Tree-embedding misalignment confirmed.
+  2. v10 — mpnet WITH rebuilt tree: nDCG=0.540 (+9.5% vs v6) — BEST RESULT
+     - Recall@10: 0.62 (best), MeanTok: 231 (best)
+     - BUT routing epsilon WORSE: L1 ε=0.24 (vs 0.16 with MiniLM)
+     - L4 ε improved: 0.75 (vs 0.81) — leaf scoring is where mpnet helps
+     - Sibling distinctiveness: 0.470 (vs 0.512 MiniLM)
+
+  KEY INSIGHT: mpnet helps at the leaf level (better chunk discrimination)
+  but routing through summary nodes is WORSE. 768-dim space doesn't help
+  structured summary text as much as natural language chunks. The routing
+  epsilon problem is not about embedding capacity — it's about how well
+  cosine similarity works on structured routing summaries.
+
+  New pattern: "Routing vs leaf discrimination split" — different levels of
+  the tree may benefit from different embedding strategies.
+
+  NEXT: Try beam=8 ceiling with mpnet tree. If routing epsilon doesn't
+  improve, the lever is BM25 hybrid routing (keyword matching on summaries)
+  rather than embedding model upgrades.
 
   PREVIOUS SESSION (session 4):
 

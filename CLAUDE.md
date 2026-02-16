@@ -123,17 +123,19 @@ Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Sibling distinctiveness: 0
 
 **Embedding model swap (2026-02-16, beam=5, cosine-only, NO tree rebuild):**
 
-| Config | Model | Dims | nDCG@10 | MeanTok | L1 ε | L2 ε | Sib Dist |
-|--------|-------|------|---------|---------|------|------|----------|
-| v6 (ref) | MiniLM | 384 | 0.493 | 249 | 0.16 | 0.36 | 0.512 |
-| **v9 mpnet** | **mpnet** | **768** | **0.450** | **296** | **0.18** | **0.38** | **0.455** |
+| Config | Model | Dims | Tree | nDCG@10 | Recall@10 | MeanTok | L1 ε | L2 ε | L4 ε |
+|--------|-------|------|------|---------|-----------|---------|------|------|------|
+| v6 (ref) | MiniLM | 384 | MiniLM | 0.493 | 0.54 | 249 | 0.16 | 0.36 | 0.81 |
+| v9 | mpnet | 768 | MiniLM | 0.450 | 0.54 | 296 | 0.18 | 0.38 | 0.76 |
+| **v10** | **mpnet** | **768** | **mpnet** | **0.540** | **0.62** | **231** | 0.24 | 0.42 | **0.75** |
 
 **Key findings (2026-02-16):**
 1. **CE is net negative for routing** — MS-MARCO CE trained on natural language, not structured metadata. Flips 26 correct cosine decisions to wrong, saves only 14. Now skipped for internal nodes.
 2. **Tree structure is sound** — wider beam monotonically improves epsilon and nDCG. Correct branches exist but cosine ranks them too low with current summary embeddings.
 3. **MiniLM embedding space is the bottleneck** — enriched text helped +17% (v6) but prompts and snippets are washes. All plateau at nDCG ~0.49. 384-dim space is saturated.
 4. **Token efficiency confirmed** — even beam=8 uses 297 tokens vs flat+CE 354. Best config (v6) uses only 249.
-5. **mpnet swap without tree rebuild is WORSE** — nDCG dropped 8.7% (0.493→0.450). Sibling distinctiveness dropped 0.512→0.455. Tree was clustered in MiniLM space; mpnet embedding space is misaligned. **Tree must be rebuilt for any embedding model change.**
+5. **mpnet swap without tree rebuild is WORSE** — nDCG dropped 8.7% (0.493→0.450). Tree was clustered in MiniLM space; mpnet embedding space is misaligned. **Tree must be rebuilt for any embedding model change.**
+6. **mpnet with rebuilt tree is BEST nDCG (0.540)** — but routing epsilon is worse (L1 0.24 vs 0.16). Gains come from better leaf-level discrimination (L4 ε 0.75 vs 0.81), not routing. 768-dim helps chunks more than structured summaries. Routing quality needs a different lever (BM25 hybrid?).
 
 **Per-category analysis (2026-02-15):**
 
@@ -257,7 +259,7 @@ tests/                           # Test suite (Phase 1+)
 - **RESOLVED (empirical):** ~~Cross-encoder (MS-MARCO) is net negative for routing on structured summary text.~~ — Confirmed. Cosine-only routing implemented. Wider beam (not CE) is the lever. Beam sweep: beam=3→5→8 shows monotonic improvement. Summary embedding quality is the real bottleneck.
 - **RESOLVED (empirical):** ~~Can summary embedding quality be improved enough to reach ε≤0.03?~~ — Three approaches tested. Enriched embed text (v6) improved L1 ε from 0.24→0.16, nDCG +17%. Contrastive prompts and content snippets were washes. MiniLM 384-dim embedding space is saturated. ε≤0.03 not achievable with this model. Next: stronger embedding model.
 - **OPEN (empirical):** L4 epsilon is 0.78-0.81 across all configs. Is leaf-level CE also hurting? Or is chunk embedding quality poor?
-- **PARTIALLY RESOLVED (empirical):** ~~Will a stronger embedding model (mpnet 768-dim, E5-large 1024-dim) close the gap to kill baseline?~~ — mpnet swap *without tree rebuild* was WORSE (-8.7%). Tree-embedding alignment is critical. Need to rebuild tree with mpnet for fair test. Still open: will mpnet + rebuilt tree improve? Or E5-large?
+- **PARTIALLY RESOLVED (empirical):** ~~Will a stronger embedding model (mpnet 768-dim, E5-large 1024-dim) close the gap to kill baseline?~~ — mpnet with rebuilt tree (v10): nDCG=0.540 (+9.5% vs MiniLM best). Gains from leaf scoring, NOT routing. L1 ε actually worse (0.24 vs 0.16). 768-dim helps chunks but not structured summaries. Routing improvement needs different approach (BM25 hybrid?). Kill baseline (0.835) still far.
 - **RESOLVED (RB-005):** ~~Where does this approach break?~~ — 26 failure modes identified. No showstopper. 10–20% expected failure rate. Top residual risks: DPI information loss (#1), budget impossibility for aggregation, beam collapse. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type.
 - **RESOLVED (RB-006):** ~~What benchmark validates the architecture?~~ — Four-source convergent design: hybrid corpus (50K–100K chunks), 300–400 stratified queries, 7 core metrics (ε, sufficiency@B, token efficiency curve, beam vs collapsed, cross-link quality, tree quality, standard IR), 4 baselines, fail-fast sequence with kill criteria. MVB costs $15–30. Per-level routing accuracy ε is the breakthrough metric (never measured in any system). Kill criterion: flat+CE beats HCR at full corpus with significance.
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
