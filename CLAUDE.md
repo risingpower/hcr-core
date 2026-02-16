@@ -118,7 +118,7 @@ Flat+CE is the kill baseline. HCR must beat nDCG@10=0.835 under token constraint
 
 Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Tree builder was broken prior to 2026-02-16 (produced flat trees). Now fixed with k-ary hierarchical clustering.
 
-Root cause: **summary quality, not tree shape.** L1 epsilon improved from 0.46 (flat tree) to 0.32 (proper hierarchy) but still 10x off target. Routing summaries too generic for cross-encoder to distinguish siblings. **NOT a kill signal** — need to test improved contrastive summaries (RB-004 open gap). Token efficiency works (234 vs 354).
+Root cause: **cross-encoder is NET NEGATIVE for routing, not just summary quality.** Inspector (scripts/inspect_summaries.py) traced all 50 queries through tree. Across 162 routing decisions: CE flips 26 correct cosine decisions to wrong, saves only 14. At L2: cosine 92% correct, CE drops to 62%. MS-MARCO CE trained on natural language, not structured routing metadata — scores are deeply negative (-3 to -11) for all candidates. **NOT a kill signal** — cosine-only routing is the immediate fix, then improve summary content. Token efficiency works (234 vs 354).
 
 **Per-category analysis (2026-02-15):**
 
@@ -239,6 +239,7 @@ tests/                           # Test suite (Phase 1+)
 - **RESOLVED (RB-004):** ~~How is the tree constructed and maintained?~~ — Bisecting k-means backbone (d=2–3, b∈[6,15]), PERCH/GRINCH-style local repairs, periodic full rebuild at 20–30% new content threshold.
 - **OPEN (RB-004 gap):** Do contrastive summaries ("covers X, NOT Y") actually improve per-level routing accuracy vs generic summaries? No empirical evidence exists. Highest-value experiment for Phase 1.
 - **OPEN (RB-004 gap):** No routing-specific tree quality metric exists in the literature. Per-level routing accuracy, sibling distinctiveness, entity coverage proposed but unvalidated. HCR can fill this gap.
+- **OPEN (empirical):** Cross-encoder (MS-MARCO) is net negative for routing on structured summary text. Does cosine-only routing close the gap? Does reformatting summaries to natural language improve CE? Inspector: `scripts/inspect_summaries.py`.
 - **RESOLVED (RB-005):** ~~Where does this approach break?~~ — 26 failure modes identified. No showstopper. 10–20% expected failure rate. Top residual risks: DPI information loss (#1), budget impossibility for aggregation, beam collapse. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type.
 - **RESOLVED (RB-006):** ~~What benchmark validates the architecture?~~ — Four-source convergent design: hybrid corpus (50K–100K chunks), 300–400 stratified queries, 7 core metrics (ε, sufficiency@B, token efficiency curve, beam vs collapsed, cross-link quality, tree quality, standard IR), 4 baselines, fail-fast sequence with kill criteria. MVB costs $15–30. Per-level routing accuracy ε is the breakthrough metric (never measured in any system). Kill criterion: flat+CE beats HCR at full corpus with significance.
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)

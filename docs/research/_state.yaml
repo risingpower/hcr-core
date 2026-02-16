@@ -10,7 +10,7 @@ last_session: "2026-02-16"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Tree builder fixed (was flat, now hierarchical). Config A tested (depth=3, branching=8): nDCG=0.318, epsilon L1=0.32. Tree shape is no longer the bottleneck — summary quality is. Next: improve routing summary discriminativeness."
+  focus: "Summary quality inspector complete. Root cause diagnosed: cross-encoder is NET NEGATIVE for routing (hurts 26 decisions, saves 14). CE trained on natural language, not structured routing metadata. Next: implement cosine-only routing for internal nodes (quick win), then improve summary content."
   blockers: []
 
 # Research briefs status
@@ -94,6 +94,46 @@ hcr_results:
     sibling_distinctiveness: 0.608
     notes: "Fixed hierarchical builder. Proper k-ary tree. L1 epsilon improved 0.46→0.32 but still 10x off target. Problem is summary quality, not tree shape."
 
+# Routing diagnosis (2026-02-16, session 2)
+routing_diagnosis:
+  inspector_script: "scripts/inspect_summaries.py"
+  per_level_accuracy:
+    L0_cosine_miss: "24%"
+    L0_ce_miss: "14%"
+    L1_cosine_miss: "22%"
+    L1_ce_miss: "22%"
+    L2_cosine_miss: "8%"
+    L2_ce_miss: "38%"
+    L3_cosine_miss: "0%"
+    L3_ce_miss: "21%"
+  decision_breakdown:
+    total_decisions: 162
+    both_correct: "109 (67%)"
+    cosine_ok_ce_wrong: "26 (16%)"
+    cosine_wrong_ce_ok: "14 (9%)"
+    both_wrong: "13 (8%)"
+  ce_score_distribution:
+    when_correct_mean: -3.833
+    when_correct_range: "-11.09 to +5.69"
+    when_incorrect_correct_branch_mean: -7.067
+    when_incorrect_top1_mean: -4.767
+  root_cause: |
+    MS-MARCO cross-encoder trained on natural language passages, not structured
+    routing metadata ("Theme: X. Includes: A, B. Excludes: C."). Scores deeply
+    negative for all candidates, destroying signal. CE is net negative: hurts
+    26 correct cosine decisions, saves only 14. At L2 especially destructive
+    (8% cosine miss → 38% CE miss).
+  category_failure_rates:
+    temporal: "2/2 (100%)"
+    ambiguous: "2/2 (100%)"
+    single_branch: "10/12 (83%)"
+    dpi: "5/7 (71%)"
+    comparative: "3/5 (60%)"
+    ood: "3/5 (60%)"
+    entity_spanning: "4/10 (40%)"
+    multi_hop: "2/5 (40%)"
+    aggregation: "0/2 (0%)"
+
 # Implementation phases completed
 implementation:
   phases_complete:
@@ -116,6 +156,8 @@ implementation:
     - "First HCR evaluation: nDCG=0.345, epsilon L1=0.46"
     - "Hierarchical tree builder fix (k-ary clustering + recursive node creation)"
     - "Config A evaluation: nDCG=0.318, epsilon L1=0.32 (proper tree)"
+    - "Summary quality inspector (scripts/inspect_summaries.py)"
+    - "Routing diagnosis: CE is net negative for routing, cosine-only is better"
   test_count: 126
   mypy_status: "clean (30 source files)"
   ruff_status: "clean"
@@ -133,7 +175,9 @@ hypotheses:
     Two HCR configs tested. Both show epsilon L1 >> 0.03 target.
     Tree shape is not the primary lever — summary discriminativeness is.
     Token efficiency confirmed (161-234 vs 354 baseline).
-    Hypothesis validation blocked on routing summary quality.
+    Hypothesis validation blocked on routing quality.
+    NEW: Cross-encoder identified as net negative for routing.
+    Cosine-only routing should be tested as immediate improvement.
 
 # Knowledge accumulation
 knowledge:
@@ -143,57 +187,90 @@ knowledge:
   domains_documented: 0
   edge_cases: 0
   notes: |
-    Pattern: "DPI summary blindness" — cross-encoder gives all branches
+    Pattern 1: "DPI summary blindness" — cross-encoder gives all branches
     ~-11 score for specific detail queries because coarse routing summaries
     don't contain the specific terms. Predicted by RB-005 failure mode #1.
     Confirmed across both tree configs (flat and hierarchical).
+    Pattern 2: "CE routing damage" — MS-MARCO CE trained on natural language,
+    not structured metadata. Scores deeply negative (-3 to -11) even for correct
+    branch. Flips 26 correct cosine decisions to wrong. Net negative for routing.
 
 # Next actions (prioritized)
 next_actions:
-  - "Improve routing summary quality (highest leverage)"
-  - "Make summaries more contrastive: force LLM to highlight differentiators between sibling clusters"
-  - "Include specific key terms, entities, sample content snippets in summaries"
-  - "Consider depth-variable formatting (RB-004): contrastive prose at L1, keyword arrays at deeper levels"
-  - "After summary improvement: re-run Config A (depth=3, branching=8) and compare epsilons"
-  - "If epsilon still high: try cosine-only routing (skip cross-encoder for routing decisions)"
-  - "If epsilon improves: widen beam (5) and compare nDCG against baselines"
+  - id: 1
+    action: "QUICK WIN: Cosine-only routing for internal nodes"
+    details: |
+      In hcr_core/scoring/cascade.py, skip cross-encoder (stage 2) when scoring
+      internal nodes (nodes with summaries). Keep CE only for leaf-level scoring
+      where it sees actual chunk content. This should flip L2 from 38% CE miss
+      back to 8% cosine miss — a 4.75x improvement with one change.
+    files:
+      - "hcr_core/scoring/cascade.py — add skip_ce_for_summaries option"
+    test: "Re-run scripts/inspect_summaries.py --brief to verify improvement"
+  - id: 2
+    action: "Re-run HCR benchmark with cosine-only routing"
+    details: |
+      Delete benchmark/results/hcr_tree.json is NOT needed (tree unchanged).
+      Just re-run evaluation with cosine-only cascade.
+      Run: set -a && source .env && set +a && python scripts/run_benchmark.py --mode hcr
+    test: "Compare epsilon and nDCG against Config A (v2) results"
+  - id: 3
+    action: "Improve summary content (if cosine-only still insufficient)"
+    details: |
+      Three improvements to summarizer.py:
+      a) Include key_entities and key_terms in the text fed to scoring
+         (currently cascade._get_text only uses theme/includes/excludes)
+      b) Add sample content snippets to summaries for better term coverage
+      c) Stronger contrastive prompts (force specific differentiators)
+      Each change requires tree rebuild: delete benchmark/results/hcr_tree.json
+    files:
+      - "hcr_core/tree/summarizer.py — prompt and summary generation"
+      - "hcr_core/scoring/cascade.py — _get_text() format"
+  - id: 4
+    action: "If epsilon improves to <0.10: widen beam to 5, compare nDCG"
+    details: "Beam width in scripts/run_benchmark.py line ~375 (HCRBaseline init)"
 
 # Notes for next session
 notes: |
-  SESSION 2026-02-16 SUMMARY:
+  SESSION 2026-02-16 (session 2) SUMMARY:
 
-  BUG FIXED: Tree builder was producing flat 2-level trees regardless of
-  depth parameter. bisecting_kmeans returned flat cluster list, losing
-  hierarchy. Fixed both:
-  - clustering.py: k-ary hierarchical_kmeans (ClusterNode dataclass)
-  - builder.py: recursive _build_subtree with per-level summaries
+  BUILT: Summary quality inspector (scripts/inspect_summaries.py)
+  Traces each query through tree showing cosine and CE scores at every level,
+  with correct branch vs chosen branch comparison.
 
-  CONFIG A RESULTS (depth=3, branching=8, proper k-ary tree):
-  - nDCG@10=0.318 vs flat+CE=0.835 (LOSE by 0.517)
-  - Recall@10=0.40 vs flat+CE=0.94
-  - Mean tokens: 234 vs 354
-  - Epsilon: L0=0.00, L1=0.32, L2=0.62, L3=0.78, L4=1.00
-  - Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3:253 L4:80 leaves
+  CRITICAL FINDING: Cross-encoder is NET NEGATIVE for routing.
+  - 162 total routing decisions across 50 queries, 4 levels
+  - CE flips 26 correct cosine decisions to WRONG (16%)
+  - CE saves only 14 cosine misses (9%)
+  - At L2: cosine gets 92% correct, CE drops it to 62%
+  - CE scores are deeply negative (-3 to -11) because MS-MARCO was trained
+    on natural language passages, not structured routing metadata
+  - Mean CE score even when correct: -3.833 (range -11 to +5.7)
 
-  KEY INSIGHT: Tree shape is not the bottleneck. Both flat (v1) and
-  hierarchical (v2) trees fail because routing summaries are too generic.
-  The cross-encoder can't distinguish siblings. This is the RB-004 open
-  gap: "do contrastive summaries improve routing accuracy?"
+  THREE PROBLEMS IDENTIFIED (severity order):
+  1. CE is net negative for routing — biggest single lever
+  2. Summary content too abstract (no entities/terms in CE text format)
+  3. Root-level routing weak (24% cosine miss at L0)
 
-  NEXT SESSION TASK: Improve summary quality in summarizer.py.
-  Approach:
-  1. Make contrastive prompts stronger (force specific differentiators)
-  2. Include key terms, entities, sample content snippets
-  3. Consider depth-variable formatting (RB-004 Gemini recommendation)
-  4. Re-run Config A and measure epsilon improvement
+  QUICK WIN for next session: cosine-only routing for internal nodes.
+  Skip CE stage 2 in cascade.py when scoring nodes with summaries.
+  Keep CE only for leaf-level scoring where it sees actual chunk content.
+  Expected: L2 miss drops from 38% to 8%. Should significantly improve
+  nDCG from 0.318.
+
+  Inspector command: scripts/inspect_summaries.py
+    --brief          aggregate only
+    --failures-only  only misrouted queries
+    --top-n N        worst N failures
+    --level L        focus on level L failures
 
   Key files:
-  - hcr_core/tree/summarizer.py — the prompt and summary generation
+  - hcr_core/scoring/cascade.py — the cascade with CE (modify here first)
+  - hcr_core/tree/summarizer.py — prompt and summary generation
   - hcr_core/tree/builder.py — calls summarizer per node
-  - hcr_core/tree/clustering.py — k-ary hierarchical clustering
-  - scripts/run_benchmark.py — depth/branching config at lines ~324-326
-  - Delete benchmark/results/hcr_tree.json before each run to rebuild
+  - scripts/inspect_summaries.py — routing quality inspector
+  - scripts/run_benchmark.py — benchmark runner
 
   Run: set -a && source .env && set +a && python scripts/run_benchmark.py --mode hcr
-  Deps: pip install -e '.[dev]'
+  Inspector: set -a && source .env && set +a && python scripts/inspect_summaries.py --brief
   Branch: 0215jc
