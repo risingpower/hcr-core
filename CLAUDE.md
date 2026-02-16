@@ -102,23 +102,22 @@ Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode an
 
 Flat+CE is the kill baseline. HCR must beat nDCG@10=0.835 under token constraints to validate H1a/H1b.
 
-**HCR results (Config A, 2026-02-16, depth=3, branching=8, proper k-ary tree):**
+**HCR beam width sweep (2026-02-16, depth=3, branching=8, cosine-only routing):**
 
-| System | nDCG@10 | Recall@10 | MRR | MeanTok |
-|--------|---------|-----------|-----|---------|
-| **HCR** | **0.318** | **0.40** | **0.298** | 234 |
+| Config | Beam | nDCG@10 | Recall@10 | MRR | MeanTok | L1 ε | L2 ε |
+|--------|------|---------|-----------|-----|---------|------|------|
+| v2 (CE all) | 3 | 0.318 | 0.40 | 0.298 | 234 | 0.32 | 0.62 |
+| v3 cosine | 3 | 0.287 | 0.32 | 0.281 | 235 | 0.32 | 0.58 |
+| v4 wide | 5 | 0.420 | 0.46 | 0.411 | 255 | 0.24 | 0.46 |
+| **v5 ceiling** | **8** | **0.509** | **0.58** | **0.490** | 297 | **0.14** | **0.36** |
 
-| Metric | Value | Target | Status |
-|--------|-------|--------|--------|
-| Epsilon L0 | 0.000 | ≤0.03 | Pass |
-| Epsilon L1 | 0.320 | ≤0.03 | **FAIL** |
-| Epsilon L2 | 0.620 | ≤0.03 | **FAIL** |
-| Epsilon L3 | 0.780 | ≤0.03 | **FAIL** |
-| Sibling dist. | 0.608 | >0.15 | Pass |
+Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Sibling distinctiveness: 0.608 (pass >0.15).
 
-Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Tree builder was broken prior to 2026-02-16 (produced flat trees). Now fixed with k-ary hierarchical clustering.
-
-Root cause: **cross-encoder is NET NEGATIVE for routing, not just summary quality.** Inspector (scripts/inspect_summaries.py) traced all 50 queries through tree. Across 162 routing decisions: CE flips 26 correct cosine decisions to wrong, saves only 14. At L2: cosine 92% correct, CE drops to 62%. MS-MARCO CE trained on natural language, not structured routing metadata — scores are deeply negative (-3 to -11) for all candidates. **NOT a kill signal** — cosine-only routing is the immediate fix, then improve summary content. Token efficiency works (234 vs 354).
+**Key findings (2026-02-16):**
+1. **CE is net negative for routing** — MS-MARCO CE trained on natural language, not structured metadata. Flips 26 correct cosine decisions to wrong, saves only 14. Now skipped for internal nodes.
+2. **Tree structure is sound** — wider beam monotonically improves epsilon and nDCG. Correct branches exist but cosine ranks them too low with current summary embeddings.
+3. **Summary embedding quality is the bottleneck** — beam=8 ceiling (nDCG=0.509) is still far from kill baseline (0.835). Next lever: improve what gets embedded per node.
+4. **Token efficiency confirmed** — even beam=8 uses 297 tokens vs flat+CE 354.
 
 **Per-category analysis (2026-02-15):**
 
@@ -239,7 +238,9 @@ tests/                           # Test suite (Phase 1+)
 - **RESOLVED (RB-004):** ~~How is the tree constructed and maintained?~~ — Bisecting k-means backbone (d=2–3, b∈[6,15]), PERCH/GRINCH-style local repairs, periodic full rebuild at 20–30% new content threshold.
 - **OPEN (RB-004 gap):** Do contrastive summaries ("covers X, NOT Y") actually improve per-level routing accuracy vs generic summaries? No empirical evidence exists. Highest-value experiment for Phase 1.
 - **OPEN (RB-004 gap):** No routing-specific tree quality metric exists in the literature. Per-level routing accuracy, sibling distinctiveness, entity coverage proposed but unvalidated. HCR can fill this gap.
-- **OPEN (empirical):** Cross-encoder (MS-MARCO) is net negative for routing on structured summary text. Does cosine-only routing close the gap? Does reformatting summaries to natural language improve CE? Inspector: `scripts/inspect_summaries.py`.
+- **RESOLVED (empirical):** ~~Cross-encoder (MS-MARCO) is net negative for routing on structured summary text.~~ — Confirmed. Cosine-only routing implemented. Wider beam (not CE) is the lever. Beam sweep: beam=3→5→8 shows monotonic improvement. Summary embedding quality is the real bottleneck.
+- **OPEN (empirical):** Can summary embedding quality be improved enough to reach ε≤0.03? Three approaches: enriching `_get_text()`, contrastive summarizer prompts, sample content snippets. Target: L1 ε≤0.10 with beam=5.
+- **OPEN (empirical):** L4 epsilon is 0.80 even at beam=8. Is leaf-level CE also hurting? Or is leaf embedding quality poor?
 - **RESOLVED (RB-005):** ~~Where does this approach break?~~ — 26 failure modes identified. No showstopper. 10–20% expected failure rate. Top residual risks: DPI information loss (#1), budget impossibility for aggregation, beam collapse. Three design changes needed: beam diversity enforcement, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type.
 - **RESOLVED (RB-006):** ~~What benchmark validates the architecture?~~ — Four-source convergent design: hybrid corpus (50K–100K chunks), 300–400 stratified queries, 7 core metrics (ε, sufficiency@B, token efficiency curve, beam vs collapsed, cross-link quality, tree quality, standard IR), 4 baselines, fail-fast sequence with kill criteria. MVB costs $15–30. Per-level routing accuracy ε is the breakthrough metric (never measured in any system). Kill criterion: flat+CE beats HCR at full corpus with significance.
 - LATTICE (UT Austin, Oct 2025) is the closest competitor. How does HCR differentiate? (Token budget, external source pointers, coarse-to-fine hybrid.)
