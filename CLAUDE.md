@@ -129,6 +129,13 @@ Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Sibling distinctiveness: 0
 | v9 | mpnet | 768 | MiniLM | 0.450 | 0.54 | 296 | 0.18 | 0.38 | 0.76 |
 | **v10** | **mpnet** | **768** | **mpnet** | **0.540** | **0.62** | **231** | 0.24 | 0.42 | **0.75** |
 
+**Phase A ceiling experiment #1 (2026-02-16, mpnet rebuilt tree, beam=8):**
+
+| Config | Beam | nDCG@10 | Recall@10 | MRR | MeanTok | L1 ε | L2 ε | L4 ε |
+|--------|------|---------|-----------|-----|---------|------|------|------|
+| v10 (ref) | 5 | 0.540 | 0.62 | 0.516 | 231 | 0.24 | 0.42 | 0.75 |
+| **v11 ceiling** | **8** | **0.580** | **0.66** | **0.556** | 290 | **0.06** | **0.28** | 0.84 |
+
 **Key findings (2026-02-16):**
 1. **CE is net negative for routing** — MS-MARCO CE trained on natural language, not structured metadata. Flips 26 correct cosine decisions to wrong, saves only 14. Now skipped for internal nodes.
 2. **Tree structure is sound** — wider beam monotonically improves epsilon and nDCG. Correct branches exist but cosine ranks them too low with current summary embeddings.
@@ -136,6 +143,7 @@ Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Sibling distinctiveness: 0
 4. **Token efficiency confirmed** — even beam=8 uses 297 tokens vs flat+CE 354. Best config (v6) uses only 249.
 5. **mpnet swap without tree rebuild is WORSE** — nDCG dropped 8.7% (0.493→0.450). Tree was clustered in MiniLM space; mpnet embedding space is misaligned. **Tree must be rebuilt for any embedding model change.**
 6. **mpnet with rebuilt tree is BEST nDCG (0.540)** — but routing epsilon is worse (L1 0.24 vs 0.16). Gains come from better leaf-level discrimination (L4 ε 0.75 vs 0.81), not routing. 768-dim helps chunks more than structured summaries. Routing quality needs a different lever (BM25 hybrid?).
+7. **L1 routing nearly solved at beam=8 mpnet (ε=0.06)** — dramatic improvement from 0.24. Bottleneck shifted to L2 (ε=0.28). L4 ε worsened (0.84 vs 0.75) — wider beam introduces noise in leaf CE scoring. nDCG=0.580 below Phase A 0.65 threshold but encouraging. BM25 hybrid routing is the remaining Phase A lever.
 
 **Per-category analysis (2026-02-15):**
 

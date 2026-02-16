@@ -10,7 +10,7 @@ last_session: "2026-02-16"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "mpnet with rebuilt tree (v10) is BEST nDCG so far: 0.540 (+9.5% vs v6). But routing epsilon worse (0.24 vs 0.16). Gains from leaf scoring, not routing. Kill baseline 0.835 still far. Try beam=8 with mpnet tree, or BM25 hybrid routing."
+  focus: "v11 (beam=8 mpnet) nDCG=0.580 — BEST ever. L1 ε=0.06 (nearly solved). L2 ε=0.28 is now the routing bottleneck. Kill baseline 0.835 still far (gap 0.256). Phase A ceiling #1 done, #2 (BM25 hybrid routing) next."
   blockers: []
 
 # Research briefs status
@@ -222,6 +222,24 @@ hcr_results:
     epsilon_level_4: 0.750
     sibling_distinctiveness: 0.470
     notes: "mpnet with rebuilt tree. BEST nDCG so far (+9.5% vs v6). Recall@10 0.62 (best). Tokens 231 (best). BUT routing epsilon WORSE (L1 0.24 vs 0.16). nDCG gain comes from better leaf scoring (L4 ε 0.75 vs 0.81) and richer embeddings downstream, not from routing precision. Kill baseline still 0.835."
+  config_v11_mpnet_beam8:
+    tree_depth: 3
+    branching: 8
+    beam_width: 8
+    cascade: "pre_filter_k=8, final_k=5, cosine-only internal"
+    embedding_model: "all-mpnet-base-v2 (768-dim)"
+    tree_rebuilt: true
+    ndcg_at_10: 0.580
+    recall_at_10: 0.66
+    mrr: 0.556
+    mean_tokens: 290
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.060
+    epsilon_level_2: 0.280
+    epsilon_level_3: 0.420
+    epsilon_level_4: 0.838
+    sibling_distinctiveness: 0.470
+    notes: "beam=8 ceiling on mpnet rebuilt tree. BEST nDCG (0.580, +7.4% vs v10). L1 ε=0.06 — dramatic improvement (was 0.24). Routing at L1 nearly solved. L2 ε=0.28 is now the routing bottleneck. L4 ε worse (0.84 vs 0.75) — more leaves explored = more noise in CE leaf scoring. Token cost 290 still below flat+CE 354. Below Phase A success threshold (0.65) but L1 result is encouraging."
 
 # Summary quality experiment (2026-02-16, session 4)
 summary_quality_experiment:
@@ -338,13 +356,12 @@ hypotheses:
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
   notes: |
-    Ten HCR configs tested (v1-v10). mpnet with rebuilt tree (v10) is BEST:
-    nDCG=0.540 (+9.5% vs v6), Recall@10=0.62, MeanTok=231. But routing
-    epsilon WORSE (L1 0.24 vs 0.16). The nDCG gain comes from mpnet's
-    better leaf-level discrimination (L4 ε 0.75 vs 0.81), not routing.
-    Kill baseline: 0.835. Gap is 0.295 — still far. Token efficiency
-    excellent (231 vs 354 baseline). Next levers: wider beam on mpnet
-    tree, or BM25 hybrid routing to address routing epsilon.
+    Eleven HCR configs tested (v1-v11). v11 (beam=8, mpnet rebuilt) is BEST:
+    nDCG=0.580, Recall@10=0.66, MeanTok=290. L1 ε=0.06 (nearly solved).
+    L2 ε=0.28 is now the routing bottleneck. L4 ε=0.84 (worse than v10's
+    0.75 — wider beam introduces noise at leaf level). Kill baseline: 0.835.
+    Gap is 0.256. Token efficiency still good (290 vs 354). Next lever:
+    BM25 hybrid routing to address L2 epsilon.
 
 # Knowledge accumulation
 knowledge:
@@ -375,12 +392,8 @@ next_actions:
   - id: 1
     phase: A
     action: "Beam=8 ceiling test on mpnet rebuilt tree"
-    details: |
-      v10 (beam=5, mpnet rebuilt) gives nDCG=0.540 but L1 ε=0.24.
-      Beam=8 ceiling on MiniLM gave nDCG=0.509 and L1 ε=0.14.
-      Config change only — update hcr_baseline.py beam_width=8,
-      pre_filter_k=8, final_k=5. No tree rebuild needed.
-      Success: nDCG > 0.65. Kill: nDCG < 0.60.
+    status: DONE
+    result: "v11: nDCG=0.580, L1 ε=0.06. Below 0.65 success threshold but L1 routing nearly solved. L4 ε worsened (0.84). Bottleneck shifted to L2 routing and leaf scoring."
   - id: 2
     phase: A
     action: "BM25 hybrid routing on summary key_terms/key_entities"
