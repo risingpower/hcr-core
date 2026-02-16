@@ -143,7 +143,8 @@ Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Sibling distinctiveness: 0
 4. **Token efficiency confirmed** — even beam=8 uses 297 tokens vs flat+CE 354. Best config (v6) uses only 249.
 5. **mpnet swap without tree rebuild is WORSE** — nDCG dropped 8.7% (0.493→0.450). Tree was clustered in MiniLM space; mpnet embedding space is misaligned. **Tree must be rebuilt for any embedding model change.**
 6. **mpnet with rebuilt tree is BEST nDCG (0.540)** — but routing epsilon is worse (L1 0.24 vs 0.16). Gains come from better leaf-level discrimination (L4 ε 0.75 vs 0.81), not routing. 768-dim helps chunks more than structured summaries. Routing quality needs a different lever (BM25 hybrid?).
-7. **L1 routing nearly solved at beam=8 mpnet (ε=0.06)** — dramatic improvement from 0.24. Bottleneck shifted to L2 (ε=0.28). L4 ε worsened (0.84 vs 0.75) — wider beam introduces noise in leaf CE scoring. nDCG=0.580 below Phase A 0.65 threshold but encouraging. BM25 hybrid routing is the remaining Phase A lever.
+7. **L1 routing nearly solved at beam=8 mpnet (ε=0.06)** — dramatic improvement from 0.24. Bottleneck shifted to L2 (ε=0.28). L4 ε worsened (0.84 vs 0.75) — wider beam introduces noise in leaf CE scoring. nDCG=0.580 below Phase A 0.65 threshold but encouraging.
+8. **BM25 hybrid routing is net negative (v12: nDCG=0.465, -14%)** — RRF(cosine, BM25) over summary `key_terms`/`key_entities` hurts. BM25 signal too sparse on short structured text (~10-20 tokens per node). Reverted to cosine-only. **Phase A complete: both ceiling experiments done. Best nDCG=0.580, below 0.65 threshold. Proceed to Phase B (scale-up).**
 
 **Per-category analysis (2026-02-15):**
 

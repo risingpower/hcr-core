@@ -10,7 +10,7 @@ last_session: "2026-02-16"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "v11 (beam=8 mpnet) nDCG=0.580 — BEST ever. L1 ε=0.06 (nearly solved). L2 ε=0.28 is now the routing bottleneck. Kill baseline 0.835 still far (gap 0.256). Phase A ceiling #1 done, #2 (BM25 hybrid routing) next."
+  focus: "Phase A complete. Best: v11 (beam=8 mpnet) nDCG=0.580. BM25 hybrid routing (v12) was net negative. Neither hit 0.65 threshold. Proceed to Phase B: scale-up to 50K-100K chunks."
   blockers: []
 
 # Research briefs status
@@ -240,6 +240,24 @@ hcr_results:
     epsilon_level_4: 0.838
     sibling_distinctiveness: 0.470
     notes: "beam=8 ceiling on mpnet rebuilt tree. BEST nDCG (0.580, +7.4% vs v10). L1 ε=0.06 — dramatic improvement (was 0.24). Routing at L1 nearly solved. L2 ε=0.28 is now the routing bottleneck. L4 ε worse (0.84 vs 0.75) — more leaves explored = more noise in CE leaf scoring. Token cost 290 still below flat+CE 354. Below Phase A success threshold (0.65) but L1 result is encouraging."
+  config_v12_bm25_hybrid_routing:
+    tree_depth: 3
+    branching: 8
+    beam_width: 5
+    cascade: "pre_filter_k=5, final_k=3, RRF(cosine, BM25) for internal nodes"
+    embedding_model: "all-mpnet-base-v2 (768-dim)"
+    tree_rebuilt: true
+    ndcg_at_10: 0.465
+    recall_at_10: 0.54
+    mrr: 0.446
+    mean_tokens: 219
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.220
+    epsilon_level_2: 0.500
+    epsilon_level_3: 0.580
+    epsilon_level_4: 0.839
+    sibling_distinctiveness: 0.470
+    notes: "NEGATIVE RESULT. BM25 hybrid routing over summary key_terms/key_entities hurts nDCG -14% vs cosine-only (v10). L1 ε marginally better (0.22 vs 0.24) but L2 ε worse (0.50 vs 0.42). BM25 signal too sparse on short structured text (~10-20 tokens per node). RRF overweights noisy keyword matches. Reverted to cosine-only."
 
 # Summary quality experiment (2026-02-16, session 4)
 summary_quality_experiment:
@@ -356,16 +374,15 @@ hypotheses:
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
   notes: |
-    Eleven HCR configs tested (v1-v11). v11 (beam=8, mpnet rebuilt) is BEST:
-    nDCG=0.580, Recall@10=0.66, MeanTok=290. L1 ε=0.06 (nearly solved).
-    L2 ε=0.28 is now the routing bottleneck. L4 ε=0.84 (worse than v10's
-    0.75 — wider beam introduces noise at leaf level). Kill baseline: 0.835.
-    Gap is 0.256. Token efficiency still good (290 vs 354). Next lever:
-    BM25 hybrid routing to address L2 epsilon.
+    Twelve HCR configs tested (v1-v12). Phase A complete. Best: v11
+    (beam=8, mpnet rebuilt) nDCG=0.580, L1 ε=0.06. BM25 hybrid routing
+    (v12) was net negative (-14%). Kill baseline: 0.835, gap 0.256.
+    Small-corpus ceiling reached. Scale-up (Phase B) is the real test —
+    HCR designed for large corpora where flat search degrades.
 
 # Knowledge accumulation
 knowledge:
-  patterns_discovered: 4
+  patterns_discovered: 5
   variants_discovered: 0
   contexts_documented: 0
   domains_documented: 0
@@ -385,6 +402,11 @@ knowledge:
     content snippets) to MiniLM 384-dim embeddings doesn't improve discrimination
     beyond the enriched-embed baseline. Prompts and content don't matter once
     embedding space is the bottleneck. Model capacity is the lever.
+    Pattern 5: "BM25 routing sparsity" — BM25 over structured summary keywords
+    (~10-20 tokens per node) produces noisy rankings that hurt RRF fusion with
+    cosine. BM25 needs sufficient text mass to produce meaningful IDF-weighted
+    scores. Works well on chunk content (hundreds of tokens), fails on compact
+    keyword lists.
 
 # Next actions (prioritized)
 next_actions:
@@ -397,21 +419,16 @@ next_actions:
   - id: 2
     phase: A
     action: "BM25 hybrid routing on summary key_terms/key_entities"
-    details: |
-      Original design (RB-002/003) called for BM25+dense pre-filter.
-      Never implemented for routing. Summary nodes have key_terms and
-      key_entities — build BM25 index over these per-level, combine
-      with cosine scores (RRF or weighted sum) for routing decisions.
-      This is the last untested lever from the original architecture.
-      Implement in cascade.py alongside cosine scoring.
+    status: DONE
+    result: "v12: nDCG=0.465 — NEGATIVE RESULT (-14% vs v10). BM25 too sparse on short summary text. Reverted to cosine-only."
   - id: 3
     phase: A
     action: "Phase A decision point"
-    details: |
-      If either experiment breaks nDCG=0.65 → proceed to Phase B
-      with that approach as the HCR config.
-      If neither breaks 0.65 → dense+BM25 routing has a ceiling at
-      small scale. Proceed to Phase B anyway (scale is the real test).
+    status: DONE
+    result: |
+      Neither experiment broke 0.65 threshold. Best: v11 (beam=8 mpnet) at nDCG=0.580.
+      Dense+BM25 routing has a ceiling at small corpus scale. Proceed to Phase B (scale-up)
+      with v11 config (beam=8, mpnet, cosine-only) as HCR candidate.
   # Phase B: Scale-up validation (ADR-002)
   - id: 4
     phase: B
@@ -430,7 +447,30 @@ next_actions:
 
 # Notes for next session
 notes: |
-  SESSION 2026-02-16 (session 5) SUMMARY:
+  SESSION 2026-02-16 (session 6) SUMMARY:
+
+  PHASE A COMPLETE — two ceiling experiments:
+  1. v11 — beam=8 on mpnet rebuilt tree: nDCG=0.580 (+7.4% vs v10)
+     - L1 ε=0.06 (nearly solved!) but L2 ε=0.28, L4 ε=0.84
+     - BEST nDCG ever, but below 0.65 Phase A success threshold
+  2. v12 — BM25 hybrid routing (RRF cosine+BM25): nDCG=0.465 (-14% vs v10)
+     - NEGATIVE RESULT. BM25 too sparse on short summary text
+     - Reverted to cosine-only routing
+
+  PHASE A DECISION: Neither experiment broke 0.65. Small-corpus ceiling
+  reached. v11 (beam=8, mpnet, cosine-only) is best config at nDCG=0.580.
+  Proceed to Phase B: scale-up to 50K-100K chunks per RB-006 design.
+
+  KEY INSIGHT: At 315 chunks, flat+CE can score every chunk directly.
+  HCR's advantage is efficiency at scale — the 0.256 nDCG gap may
+  narrow or invert when flat search can't afford to CE-score everything.
+
+  New pattern: "BM25 routing sparsity" — BM25 over structured summary
+  keywords (~10-20 tokens) produces noisy rankings that hurt RRF fusion.
+  BM25 works well on natural language (chunk content) but poorly on
+  compact keyword lists.
+
+  PREVIOUS SESSION (session 5) SUMMARY:
 
   TWO MPNET EXPERIMENTS:
   1. v9 — mpnet swap WITHOUT tree rebuild: nDCG=0.450 (-8.7% vs v6)
