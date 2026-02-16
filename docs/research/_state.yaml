@@ -10,7 +10,7 @@ last_session: "2026-02-16"
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Beam width sweep complete. Tree structure confirmed sound — wider beam monotonically improves epsilon and nDCG. Bottleneck is summary embedding quality (cosine can't discriminate siblings). Next: improve summary content for better embedding discrimination."
+  focus: "Summary text experiments complete (v6-v8). Enriched embedding text gives +17% nDCG. Prompt engineering and content snippets are washes — MiniLM embedding space is saturated at nDCG ~0.49. Next: try stronger embedding model or different architecture approach."
   blockers: []
 
 # Research briefs status
@@ -139,6 +139,70 @@ hcr_results:
     epsilon_level_3: 0.400
     epsilon_level_4: 0.796
     notes: "Ceiling test (beam=branching at L1). nDCG +60% over v2. L1 ε=0.14 (5x better). Still far from kill baseline (0.835). Token cost still below flat+CE (297 vs 354). Confirms summary quality is the bottleneck, not tree structure."
+  config_v6_enriched_embed:
+    tree_depth: 3
+    branching: 8
+    beam_width: 5
+    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
+    ndcg_at_10: 0.493
+    recall_at_10: 0.54
+    mrr: 0.481
+    mean_tokens: 249
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.160
+    epsilon_level_2: 0.360
+    epsilon_level_3: 0.480
+    epsilon_level_4: 0.813
+    sibling_distinctiveness: 0.512
+    notes: "Enriched summary_to_text() with all RoutingSummary fields (entities, terms, excludes). No tree rebuild — just re-embedded. +17% nDCG over v4. Best beam=5 result."
+  config_v7_contrastive_prompts:
+    tree_depth: 3
+    branching: 8
+    beam_width: 5
+    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
+    ndcg_at_10: 0.484
+    recall_at_10: 0.52
+    mrr: 0.479
+    mean_tokens: 269
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.140
+    epsilon_level_2: 0.440
+    epsilon_level_3: 0.500
+    epsilon_level_4: 0.784
+    sibling_distinctiveness: 0.450
+    notes: "More specific contrastive prompts. Rebuilt tree. L1 ε improved marginally but L2 worse. Wash."
+  config_v8_content_snippets:
+    tree_depth: 3
+    branching: 8
+    beam_width: 5
+    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
+    ndcg_at_10: 0.485
+    recall_at_10: 0.54
+    mrr: 0.472
+    mean_tokens: 279
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.160
+    epsilon_level_2: 0.420
+    epsilon_level_3: 0.500
+    epsilon_level_4: 0.778
+    sibling_distinctiveness: 0.489
+    notes: "Content snippets (first 200 chars) added to summaries. Rebuilt tree. No meaningful improvement. MiniLM embedding space saturated."
+
+# Summary quality experiment (2026-02-16, session 4)
+summary_quality_experiment:
+  finding: |
+    Three approaches tested to improve summary embedding discrimination.
+    Only enriched embedding text (v6) helped. Contrastive prompts (v7) and
+    content snippets (v8) were washes. All plateau at nDCG ~0.49 with beam=5.
+    MiniLM 384-dim embedding space is saturated — adding more text doesn't
+    help discrimination. The bottleneck has shifted from summary text quality
+    to embedding model capacity.
+  best_config: "v6 (enriched embed): nDCG=0.493, L1 ε=0.16, 249 tokens"
+  approaches:
+    - "v6: Enriched _get_text() with all fields → nDCG=0.493 (+17% vs v4)"
+    - "v7: Contrastive prompts, rebuilt tree → nDCG=0.484 (wash)"
+    - "v8: Content snippets, rebuilt tree → nDCG=0.485 (wash)"
+  conclusion: "Embedding model is the bottleneck, not summary text. Next lever: stronger embedding model (E5-large, BGE, Cohere)."
 
 # Beam width sweep (2026-02-16, session 3)
 beam_sweep:
@@ -219,6 +283,10 @@ implementation:
     - "Routing diagnosis: CE is net negative for routing, cosine-only is better"
     - "Cosine-only routing for internal nodes (cascade.py)"
     - "Beam width sweep: beam=3/5/8, confirming tree structure sound"
+    - "Summary text enrichment: summary_to_text() with all RoutingSummary fields"
+    - "Contrastive prompts: more specific terms/entities (rebuilt tree)"
+    - "Content snippets: first 200 chars in summary embeddings (rebuilt tree)"
+    - "Embedding ceiling identified: MiniLM saturated at nDCG ~0.49"
   test_count: 126
   mypy_status: "clean (30 source files)"
   ruff_status: "clean"
@@ -233,15 +301,16 @@ hypotheses:
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
   notes: |
-    Five HCR configs tested (v1-v5). Beam width sweep confirms tree structure
-    is sound but summary embedding quality is the bottleneck. Best config
-    (beam=8) achieves nDCG=0.509 vs kill baseline 0.835. Token efficiency
-    confirmed (234-297 vs 354 baseline). Hypothesis validation blocked on
-    summary embedding discrimination.
+    Eight HCR configs tested (v1-v8). Beam sweep confirmed tree structure is
+    sound. Summary text experiments (v6-v8) showed enriched embedding text
+    helps (+17%) but MiniLM embedding space saturates at nDCG ~0.49.
+    Best config: v6 (beam=5, enriched embed, nDCG=0.493, 249 tokens).
+    Kill baseline: 0.835. Gap likely requires stronger embedding model.
+    Token efficiency confirmed (249-297 vs 354 baseline).
 
 # Knowledge accumulation
 knowledge:
-  patterns_discovered: 3
+  patterns_discovered: 4
   variants_discovered: 0
   contexts_documented: 0
   domains_documented: 0
@@ -257,72 +326,73 @@ knowledge:
     Pattern 3: "Beam width as diagnostic" — monotonic improvement in epsilon/nDCG
     with wider beam confirms tree structure is sound and summary quality is the
     bottleneck. beam=3→5→8 shows clear ceiling curve.
+    Pattern 4: "Embedding saturation" — adding more text (entities, terms,
+    content snippets) to MiniLM 384-dim embeddings doesn't improve discrimination
+    beyond the enriched-embed baseline. Prompts and content don't matter once
+    embedding space is the bottleneck. Model capacity is the lever.
 
 # Next actions (prioritized)
 next_actions:
   - id: 1
-    action: "Improve summary embedding discrimination"
+    action: "Try stronger embedding model for routing"
     details: |
-      Three approaches to try (in order):
-      a) Enrich _get_text() in cascade.py to include key_entities and key_terms
-         from RoutingSummary — currently only uses theme/includes/excludes.
-         Does NOT require tree rebuild, just changes what text gets embedded.
-      b) Improve summarizer prompts to be more contrastive — force siblings to
-         differentiate ("covers X, NOT Y"). Requires tree rebuild.
-      c) Add sample content snippets to summaries for better term coverage.
-         Requires tree rebuild.
-      Measure each change independently. Target: L1 ε ≤ 0.10 with beam=5.
-    files:
-      - "hcr_core/scoring/cascade.py — _get_text() enrichment (no rebuild)"
-      - "hcr_core/tree/summarizer.py — contrastive prompt improvement (rebuild)"
+      MiniLM (384-dim, all-MiniLM-L6-v2) is saturated at nDCG ~0.49.
+      Options (in order of effort):
+      a) all-mpnet-base-v2 (768-dim, same SentenceTransformers API) — drop-in
+      b) E5-large or BGE-large (1024-dim) — needs adapter for embed API
+      c) Cohere embed-v3 (1024-dim) — API call, higher quality but cost
+      Only need to re-embed summaries (cached tree has text), no rebuild.
+      Target: L1 ε ≤ 0.10 with beam=5, nDCG > 0.60.
   - id: 2
-    action: "Set beam defaults to beam=5, pre_filter_k=5, final_k=3"
+    action: "Investigate L4 epsilon (0.78-0.81 across all configs)"
     details: |
-      beam=5 is the sweet spot — good improvement over beam=3 without
-      approaching brute-force. Set as default after summary quality improves.
-      Currently set to beam=8 for ceiling test — revert to beam=5.
+      Leaf-level miss rate is ~80% even at beam=8 and across all summary
+      quality improvements. Leaf CE scoring is active — may be hurting.
+      Or chunk embeddings are poor at this granularity. Needs diagnosis.
   - id: 3
-    action: "Investigate L4 epsilon (0.80 even at beam=8)"
+    action: "Consider architectural pivot if embedding model doesn't help"
     details: |
-      L4 (leaf level) has 80% miss rate even at max beam. This suggests
-      leaf-level CE scoring (which IS active for leaves) may be hurting,
-      or leaf embedding quality is poor. Run inspector focused on L4.
+      If stronger embeddings don't close the gap to 0.835, the hierarchical
+      routing approach may have a fundamental ceiling with dense embeddings.
+      Potential pivots: BM25 hybrid routing (add keyword matching at each
+      level), or collapsed-tree-first with beam verification.
 
 # Notes for next session
 notes: |
-  SESSION 2026-02-16 (session 3) SUMMARY:
+  SESSION 2026-02-16 (session 4) SUMMARY:
 
-  THREE CHANGES MADE:
-  1. Cosine-only routing for internal nodes (skip CE in cascade.py)
-     - CE was net negative for structured routing metadata
-     - Epsilon improved at L2-L4 but nDCG dropped slightly (lost 14 accidental CE saves)
-  2. Beam width sweep: beam=3 → beam=5 → beam=8
-     - beam=5: nDCG=0.420 (+32% over v2), L1ε=0.24
-     - beam=8: nDCG=0.509 (+60% over v2), L1ε=0.14 (CEILING TEST)
-  3. Cascade parameter widening (pre_filter_k and final_k scaled with beam)
+  THREE SUMMARY TEXT EXPERIMENTS:
+  1. Enriched embedding text (v6): summary_to_text() includes all fields
+     - nDCG=0.493 (+17% vs v4), L1 ε=0.16, 249 tokens
+     - WINNER — only approach that moved the needle
+  2. Contrastive prompts (v7): more specific terms/entities in prompts
+     - nDCG=0.484 (wash), L1 ε=0.14 (marginal), L2 ε=0.44 (worse)
+  3. Content snippets (v8): first 200 chars of content in embeddings
+     - nDCG=0.485 (wash), no improvement anywhere
 
-  KEY FINDING: Tree structure is sound. Monotonic improvement with wider beam
-  confirms correct branches exist in tree — cosine just can't discriminate
-  them well enough with current summary embeddings. nDCG=0.509 at beam=8 is
-  the ceiling for current summary quality. Still far from kill baseline (0.835).
+  KEY FINDING: MiniLM 384-dim embedding space is the bottleneck, not summary
+  text quality. All three approaches plateau at nDCG ~0.49. Adding more/better
+  text doesn't help because the embedding model can't discriminate further.
+  New pattern: "Embedding saturation."
 
   CURRENT STATE OF CODE:
-  - cascade.py: cosine-only for internal nodes (CE only for leaves)
-  - hcr_baseline.py: beam=8, pre_filter_k=8, final_k=5 (ceiling test defaults)
-  - IMPORTANT: Revert to beam=5, pfk=5, fk=3 before next experiments
+  - cascade.py: cosine-only internal, unified summary_to_text()
+  - builder.py: summary_to_text() with all fields + content_snippet
+  - summarizer.py: contrastive prompts with specific term examples
+  - hcr_baseline.py: beam=5, pfk=5, fk=3 (production defaults)
+  - Cached tree: benchmark/results/hcr_tree.json (v8 tree with snippets)
+  - Old trees backed up: hcr_tree_v6.json, hcr_tree_v7.json
 
-  NEXT SESSION PRIORITY: Summary embedding quality improvement.
-  - Start with _get_text() enrichment (no tree rebuild needed)
-  - Then contrastive summarizer prompts (requires tree rebuild)
-  - Target: L1 ε ≤ 0.10 with beam=5
+  NEXT SESSION PRIORITY: Stronger embedding model.
+  - Try all-mpnet-base-v2 (768-dim, drop-in replacement)
+  - If that doesn't work, E5-large or BGE-large
+  - Only need to re-embed summaries, no tree rebuild
+  - Target: nDCG > 0.60, L1 ε ≤ 0.10
 
   Key files:
-  - hcr_core/scoring/cascade.py — scoring cascade (cosine-only routing done)
-  - hcr_core/tree/summarizer.py — summary generation prompts
-  - tests/benchmark/baselines/hcr_baseline.py — beam/cascade defaults
-  - scripts/inspect_summaries.py — routing quality inspector
-  - scripts/run_benchmark.py — benchmark runner
+  - hcr_core/corpus/embedder.py — embedding model configuration
+  - hcr_core/tree/builder.py — summary_to_text() and _embed_summary()
+  - scripts/run_benchmark.py — re-embed step + benchmark runner
 
   Run: set -a && source .env && set +a && python scripts/run_benchmark.py --mode hcr
-  Inspector: set -a && source .env && set +a && python scripts/inspect_summaries.py --brief
   Branch: 0215jc
