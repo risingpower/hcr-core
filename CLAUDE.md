@@ -102,20 +102,23 @@ Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode an
 
 Flat+CE is the kill baseline. HCR must beat nDCG@10=0.835 under token constraints to validate H1a/H1b.
 
-**First HCR results (2026-02-15, depth=2, branching=10):**
+**HCR results (Config A, 2026-02-16, depth=3, branching=8, proper k-ary tree):**
 
 | System | nDCG@10 | Recall@10 | MRR | MeanTok |
 |--------|---------|-----------|-----|---------|
-| **HCR** | **0.345** | **0.36** | **0.340** | 161 |
+| **HCR** | **0.318** | **0.40** | **0.298** | 234 |
 
 | Metric | Value | Target | Status |
 |--------|-------|--------|--------|
 | Epsilon L0 | 0.000 | ≤0.03 | Pass |
-| Epsilon L1 | 0.460 | ≤0.03 | **FAIL** |
-| Epsilon L2 | 0.640 | ≤0.03 | **FAIL** |
-| Sibling dist. | 0.690 | >0.15 | Pass |
+| Epsilon L1 | 0.320 | ≤0.03 | **FAIL** |
+| Epsilon L2 | 0.620 | ≤0.03 | **FAIL** |
+| Epsilon L3 | 0.780 | ≤0.03 | **FAIL** |
+| Sibling dist. | 0.608 | >0.15 | Pass |
 
-Root cause: tree too shallow (4 branches, depth=2). Routing summaries too coarse for specific queries. **NOT a kill signal** — need to test depth=3 and wider branching. Token efficiency works (161 vs 354).
+Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Tree builder was broken prior to 2026-02-16 (produced flat trees). Now fixed with k-ary hierarchical clustering.
+
+Root cause: **summary quality, not tree shape.** L1 epsilon improved from 0.46 (flat tree) to 0.32 (proper hierarchy) but still 10x off target. Routing summaries too generic for cross-encoder to distinguish siblings. **NOT a kill signal** — need to test improved contrastive summaries (RB-004 open gap). Token efficiency works (234 vs 354).
 
 **Per-category analysis (2026-02-15):**
 

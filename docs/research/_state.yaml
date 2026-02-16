@@ -4,13 +4,13 @@
 # Update this at session end and read at session start.
 
 version: "1.0"
-last_updated: "2026-02-15"
-last_session: "2026-02-15"
+last_updated: "2026-02-16"
+last_session: "2026-02-16"
 
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "First HCR evaluation complete. nDCG=0.345 vs flat+CE=0.835. Root cause identified: level 1 routing epsilon=0.46. Tree too shallow (depth=2, 4 branches). Need to test deeper/wider tree configs."
+  focus: "Tree builder fixed (was flat, now hierarchical). Config A tested (depth=3, branching=8): nDCG=0.318, epsilon L1=0.32. Tree shape is no longer the bottleneck — summary quality is. Next: improve routing summary discriminativeness."
   blockers: []
 
 # Research briefs status
@@ -61,7 +61,7 @@ baseline_results:
     mean_tokens: 354
   notes: "IR metrics computed on full ranked list (top-50). Token metrics on 400-token packed result. Median chunk ~470 tokens, so packing yields 0-1 chunks per query. Flat+CE is kill baseline. Results in benchmark/results/baseline_results.json (gitignored)."
 
-# HCR results (2026-02-15, depth=2, branching=10)
+# HCR results
 hcr_results:
   config_v1:
     tree_depth: 2
@@ -76,7 +76,23 @@ hcr_results:
     epsilon_level_1: 0.460
     epsilon_level_2: 0.640
     sibling_distinctiveness: 0.690
-    notes: "Level 1 routing is the bottleneck. 46% of queries routed to wrong branch. Cross-encoder gives all branches ~-11 score for specific queries — summaries too coarse. Need deeper tree or more branches."
+    notes: "OBSOLETE — tree builder was broken (flat, not hierarchical). See config_v2."
+  config_v2:
+    tree_depth: 3
+    branching: 8
+    beam_width: 3
+    tree_structure: "L0:1(8) L1:8(8) L2:64(avg4.7) L3:253 L4:80 leaves"
+    ndcg_at_10: 0.318
+    recall_at_10: 0.40
+    mrr: 0.298
+    mean_tokens: 234
+    epsilon_level_0: 0.000
+    epsilon_level_1: 0.320
+    epsilon_level_2: 0.620
+    epsilon_level_3: 0.780
+    epsilon_level_4: 1.000
+    sibling_distinctiveness: 0.608
+    notes: "Fixed hierarchical builder. Proper k-ary tree. L1 epsilon improved 0.46→0.32 but still 10x off target. Problem is summary quality, not tree shape."
 
 # Implementation phases completed
 implementation:
@@ -98,8 +114,10 @@ implementation:
     - "HCR baseline class + benchmark integration"
     - "Cascade leaf scoring fix (use chunk embeddings for leaves)"
     - "First HCR evaluation: nDCG=0.345, epsilon L1=0.46"
+    - "Hierarchical tree builder fix (k-ary clustering + recursive node creation)"
+    - "Config A evaluation: nDCG=0.318, epsilon L1=0.32 (proper tree)"
   test_count: 126
-  mypy_status: "clean (32 source files)"
+  mypy_status: "clean (30 source files)"
   ruff_status: "clean"
 
 # Hypothesis summary
@@ -112,11 +130,10 @@ hypotheses:
   highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
   lowest_confidence: "H1a (token efficiency) at 65%"
   notes: |
-    First HCR run shows nDCG=0.345 vs flat+CE=0.835. NOT a kill signal yet —
-    the tree is too shallow (depth=2, 4 branches). Root cause is level 1
-    routing (epsilon=0.46). RB-003 predicted epsilon target of 0.01-0.02.
-    Current epsilon=0.46 means routing summaries are not discriminative enough.
-    Need to test deeper/wider configs before drawing hypothesis conclusions.
+    Two HCR configs tested. Both show epsilon L1 >> 0.03 target.
+    Tree shape is not the primary lever — summary discriminativeness is.
+    Token efficiency confirmed (161-234 vs 354 baseline).
+    Hypothesis validation blocked on routing summary quality.
 
 # Knowledge accumulation
 knowledge:
@@ -129,44 +146,54 @@ knowledge:
     Pattern: "DPI summary blindness" — cross-encoder gives all branches
     ~-11 score for specific detail queries because coarse routing summaries
     don't contain the specific terms. Predicted by RB-005 failure mode #1.
+    Confirmed across both tree configs (flat and hierarchical).
 
 # Next actions (prioritized)
 next_actions:
-  - "Test tree config A: depth=3, branching=8 (deeper tree, more routing levels)"
-  - "Test tree config B: depth=2, branching=15 (wider tree, more specific clusters)"
-  - "Compare both configs vs current depth=2/branch=10 baseline"
-  - "Investigate whether collapsed-tree path compensates for beam routing failures"
-  - "If improved routing: compare HCR vs baselines per-category (dpi, comparative, etc.)"
-  - "If still failing: consider summary quality improvements (more specific summaries)"
+  - "Improve routing summary quality (highest leverage)"
+  - "Make summaries more contrastive: force LLM to highlight differentiators between sibling clusters"
+  - "Include specific key terms, entities, sample content snippets in summaries"
+  - "Consider depth-variable formatting (RB-004): contrastive prose at L1, keyword arrays at deeper levels"
+  - "After summary improvement: re-run Config A (depth=3, branching=8) and compare epsilons"
+  - "If epsilon still high: try cosine-only routing (skip cross-encoder for routing decisions)"
+  - "If epsilon improves: widen beam (5) and compare nDCG against baselines"
 
 # Notes for next session
 notes: |
-  FIRST HCR EVALUATION COMPLETE. Key findings:
+  SESSION 2026-02-16 SUMMARY:
 
-  HCR RESULTS (depth=2, branching=10):
-  - nDCG@10=0.345 vs flat+CE=0.835 (LOSE by 0.490)
-  - Recall@10=0.36 vs flat+CE=0.94
-  - Mean tokens: 161 vs 354 (HCR uses fewer — token efficiency works)
-  - Epsilon: L0=0.00, L1=0.46, L2=0.64
+  BUG FIXED: Tree builder was producing flat 2-level trees regardless of
+  depth parameter. bisecting_kmeans returned flat cluster list, losing
+  hierarchy. Fixed both:
+  - clustering.py: k-ary hierarchical_kmeans (ClusterNode dataclass)
+  - builder.py: recursive _build_subtree with per-level summaries
 
-  ROOT CAUSE: Level 1 routing epsilon=0.46.
-  - Only 4 branches at depth=2 with 315 chunks → ~80 chunks per branch
-  - Routing summaries too coarse for specific queries
-  - Cross-encoder gives all branches ~-11 score for DPI queries
-  - Sibling distinctiveness is fine (0.69 > 0.15 kill threshold)
+  CONFIG A RESULTS (depth=3, branching=8, proper k-ary tree):
+  - nDCG@10=0.318 vs flat+CE=0.835 (LOSE by 0.517)
+  - Recall@10=0.40 vs flat+CE=0.94
+  - Mean tokens: 234 vs 354
+  - Epsilon: L0=0.00, L1=0.32, L2=0.62, L3=0.78, L4=1.00
+  - Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3:253 L4:80 leaves
 
-  BUG FIXED THIS SESSION:
-  - Cascade was giving leaves score=0.0 (no summary_embedding)
-  - Fixed by adding chunk_embeddings + chunk_texts fallback to ScoringCascade
-  - Improved from nDCG=0.007 to 0.345
+  KEY INSIGHT: Tree shape is not the bottleneck. Both flat (v1) and
+  hierarchical (v2) trees fail because routing summaries are too generic.
+  The cross-encoder can't distinguish siblings. This is the RB-004 open
+  gap: "do contrastive summaries improve routing accuracy?"
 
-  NEXT SESSION: Test both tree configs with fresh context:
-  1. Config A: depth=3, branching=8 (deeper, more routing levels)
-  2. Config B: depth=2, branching=15 (wider, more specific clusters)
-  Delete benchmark/results/hcr_tree.json before each run to rebuild.
+  NEXT SESSION TASK: Improve summary quality in summarizer.py.
+  Approach:
+  1. Make contrastive prompts stronger (force specific differentiators)
+  2. Include key terms, entities, sample content snippets
+  3. Consider depth-variable formatting (RB-004 Gemini recommendation)
+  4. Re-run Config A and measure epsilon improvement
 
-  Run command: python scripts/run_benchmark.py --mode hcr
-  Tree depth/branching set in run_benchmark.py:run_hcr() (lines ~324-326)
+  Key files:
+  - hcr_core/tree/summarizer.py — the prompt and summary generation
+  - hcr_core/tree/builder.py — calls summarizer per node
+  - hcr_core/tree/clustering.py — k-ary hierarchical clustering
+  - scripts/run_benchmark.py — depth/branching config at lines ~324-326
+  - Delete benchmark/results/hcr_tree.json before each run to rebuild
 
-  Dependencies: pip install -e '.[dev]'
+  Run: set -a && source .env && set +a && python scripts/run_benchmark.py --mode hcr
+  Deps: pip install -e '.[dev]'
   Branch: 0215jc
