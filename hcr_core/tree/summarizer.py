@@ -9,8 +9,16 @@ from hcr_core.types.tree import RoutingSummary
 
 SUMMARIZE_SYSTEM = (
     "You are a routing summary generator for a hierarchical retrieval system. "
-    "Generate a structured routing summary that helps distinguish this cluster "
-    "from its siblings. Be concise and precise.\n\n"
+    "Your job: help a search system decide whether a user's query should be "
+    "routed to THIS cluster or a sibling cluster.\n\n"
+    "Rules:\n"
+    "- 'includes': specific topics covered. Use terms a user would search for, "
+    "not abstract categories. 5-8 items.\n"
+    "- 'excludes': topics NOT here but in siblings. Be specific. 3-5 items.\n"
+    "- 'key_entities': proper nouns, product names, system names from the content. "
+    "5-10 items.\n"
+    "- 'key_terms': searchable keywords and phrases a user would type. "
+    "Include abbreviations, synonyms, and specific terms. 8-15 items.\n\n"
     "Respond with valid JSON only:\n"
     "{"
     '"theme": "...", '
@@ -26,11 +34,17 @@ SUMMARIZE_PROMPT = """Generate a routing summary for this cluster of text chunks
 CLUSTER CONTENT (sample):
 {content_sample}
 
-SIBLING SUMMARIES (what other clusters cover — use for contrastive "excludes"):
+SIBLING SUMMARIES (what other clusters cover — use to write specific "excludes"):
 {sibling_context}
 
-Generate a routing summary that INCLUDES what this cluster covers \
-and EXCLUDES what siblings cover."""
+Generate a routing summary. Be SPECIFIC, not abstract:
+- BAD includes: ["Billing Structures", "Pricing Configuration"]
+- GOOD includes: ["rate plan charges", "invoice line items", "tiered pricing setup"]
+- BAD key_terms: ["billing", "pricing"]
+- GOOD key_terms: ["rate plan", "charge model", "tiered pricing", "per unit", \
+"invoice item", "subscription charge", "overage"]
+
+Use the ACTUAL terms and entities from the content, not paraphrased categories."""
 
 
 def generate_routing_summary(
