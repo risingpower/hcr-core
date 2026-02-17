@@ -146,6 +146,21 @@ Tree: L0:1(8) L1:8(8) L2:64(avg4.7) L3+L4:333 leaves. Sibling distinctiveness: 0
 7. **L1 routing nearly solved at beam=8 mpnet (ε=0.06)** — dramatic improvement from 0.24. Bottleneck shifted to L2 (ε=0.28). L4 ε worsened (0.84 vs 0.75) — wider beam introduces noise in leaf CE scoring. nDCG=0.580 below Phase A 0.65 threshold but encouraging.
 8. **BM25 hybrid routing is net negative (v12: nDCG=0.465, -14%)** — RRF(cosine, BM25) over summary `key_terms`/`key_entities` hurts. BM25 signal too sparse on short structured text (~10-20 tokens per node). Reverted to cosine-only. **Phase A complete: both ceiling experiments done. Best nDCG=0.580, below 0.65 threshold. Proceed to Phase B (scale-up).**
 
+**Phase B infrastructure (2026-02-17):**
+
+Phase B code infrastructure is complete. All scripts support `--scale small|medium|large`:
+
+| Component | Change |
+|-----------|--------|
+| `hcr_core/corpus/wikipedia.py` | New. Streams Wikipedia via HuggingFace `datasets`, keyword-filtered. |
+| `scripts/prepare_corpus.py` | `--scale` flag. Medium: full GitLab (~13-25K). Large: GitLab + Wikipedia (~60K). |
+| `hcr_core/corpus/embedder.py` | Batched embedding with tqdm progress for large corpora. |
+| `scripts/generate_queries.py` | Checkpointing every 50 queries. Source-proportional sampling. |
+| `hcr_core/tree/builder.py` | Progress logging every 100 LLM summary calls. |
+| `scripts/run_benchmark.py` | `--scale`, `--tree-depth`, `--tree-branching`, `failfast` mode (RB-006 kill sequence). |
+
+**Next: Execute the pipeline** — medium corpus first (stepping stone), then large (definitive test).
+
 **Per-category analysis (2026-02-15):**
 
 | Category | N | CE nDCG@10 | CE-BM25 gap | HCR opportunity |
@@ -255,7 +270,7 @@ tests/                           # Test suite (Phase 1+)
 ## Decisions Made
 
 - **ADR-001:** Go/no-go on Phase 1 — decision is GO based on six research briefs with no showstoppers. Benchmark design convergent across 4 sources. First implementation deliverable: benchmark infrastructure.
-- **ADR-002:** Validation checkpoint after 10 HCR configs on 315-chunk corpus. Best nDCG=0.540, kill baseline=0.835. Decision: **Phase A** (2 ceiling experiments: beam=8 mpnet, BM25 hybrid routing) then **Phase B** (scale up to 50K-100K chunks per RB-006). Scale is a confound — HCR designed for large corpora, tested on small.
+- **ADR-002:** Validation checkpoint after 10 HCR configs on 315-chunk corpus. Best nDCG=0.540, kill baseline=0.835. Decision: **Phase A** (2 ceiling experiments: beam=8 mpnet, BM25 hybrid routing) then **Phase B** (scale up to 50K-100K chunks per RB-006). Scale is a confound — HCR designed for large corpora, tested on small. **Phase A complete (nDCG=0.580). Phase B infrastructure built. Ready for execution.**
 
 ## Open Questions
 

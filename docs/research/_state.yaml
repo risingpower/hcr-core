@@ -4,14 +4,15 @@
 # Update this at session end and read at session start.
 
 version: "1.0"
-last_updated: "2026-02-16"
-last_session: "2026-02-16"
+last_updated: "2026-02-17"
+last_session: "2026-02-17"
 
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Phase A complete. Best: v11 (beam=8 mpnet) nDCG=0.580. BM25 hybrid routing (v12) was net negative. Neither hit 0.65 threshold. Proceed to Phase B: scale-up to 50K-100K chunks."
-  blockers: []
+  focus: "Phase B infrastructure complete. Ready to run medium→large corpus pipeline."
+  blockers:
+    - "Python _lzma module missing — pyenv Python 3.12.3 built without xz. Fix: brew install xz && pyenv install --force 3.12.3. Doesn't block corpus prep/benchmarking, only affects full pytest suite."
 
 # Research briefs status
 briefs:
@@ -432,22 +433,124 @@ next_actions:
   # Phase B: Scale-up validation (ADR-002)
   - id: 4
     phase: B
-    action: "Build 50K-100K chunk corpus per RB-006 design"
-    details: |
-      GitLab handbook (~30K chunks) + synthetic injectors + additional
-      sources. Generate stratified query suite (300-400 queries).
-      LLM costs ~$15-30. This is the designed validation scale.
+    action: "Phase B infrastructure (code)"
+    status: DONE
+    result: |
+      8 files changed (936 insertions). Three-tier --scale (small/medium/large).
+      Wikipedia loader via HuggingFace datasets. Batched embedding with tqdm.
+      Query checkpointing. Fail-fast mode (RB-006 kill sequence). Tree builder
+      progress logging. Scale-specific directories. mypy/ruff/pytest clean.
   - id: 5
     phase: B
-    action: "Full fail-fast sequence at scale (RB-006)"
+    action: "Prepare medium corpus (stepping stone)"
+    status: TODO
     details: |
-      Rerun baselines + best HCR config at scale. Measure all 7 core
-      metrics. Apply kill criteria. This is the definitive test of
-      H1a/H1b/H1c.
+      python scripts/prepare_corpus.py --scale medium --skip-download
+      Validates pipeline at ~13-25K chunks before committing to full 60K.
+      Embed + generate 150 queries + sanity check baselines.
+  - id: 6
+    phase: B
+    action: "Run medium fail-fast"
+    status: TODO
+    details: |
+      python scripts/run_benchmark.py --scale medium --mode failfast
+      Stepping stone. Check if kill criteria trigger early at ~13-25K chunks.
+  - id: 7
+    phase: B
+    action: "Prepare large corpus (GitLab + Wikipedia)"
+    status: TODO
+    details: |
+      python scripts/prepare_corpus.py --scale large
+      Downloads Wikipedia via HuggingFace (~2500 articles). Combined ~60K chunks.
+  - id: 8
+    phase: B
+    action: "Build large tree + generate 350 queries"
+    status: TODO
+    details: |
+      Tree: depth=4, branching=8 (~4600 Haiku calls, ~$14).
+      Queries: 350 stratified (~$0.35). Total ~$15.
+  - id: 9
+    phase: B
+    action: "Full fail-fast at large scale (RB-006)"
+    status: TODO
+    details: |
+      Rerun baselines + best HCR config at ~60K chunks. Measure all 7 core
+      metrics. Apply kill criteria. This is the definitive test of H1a/H1b/H1c.
+
+# Implementation progress
+implementation:
+  phases_complete:
+    - "Phase 1: Core types (Pydantic models)"
+    - "Phase 2: Corpus pipeline (chunker, loader, embedder)"
+    - "Phase 3: Index infrastructure (BM25, vector, hybrid)"
+    - "Phase 4: LLM client + caching"
+    - "Phase 5: Retrieval baselines (BM25, hybrid, flat+CE)"
+    - "Phase 6: Evaluation metrics (epsilon, sufficiency, IR)"
+    - "Phase 7: Query suite + benchmark runner"
+    - "Phase 9: HCR core (tree builder, beam traversal, collapsed retrieval, dual-path, scoring cascade)"
+    - "Code review fixes"
+    - "Query generator fix (JSON fence stripping, Haiku model)"
+    - "Sanity check passed (all baselines operational)"
+    - "Baseline evaluation fix (separate ranking from token packing)"
+    - "Baseline evaluation complete (BM25, hybrid, flat+CE)"
+    - "Per-category baseline analysis (scripts/analyse_baselines.py)"
+    - "HCR baseline class + benchmark integration"
+    - "Cascade leaf scoring fix (use chunk embeddings for leaves)"
+    - "First HCR evaluation: nDCG=0.345, epsilon L1=0.46"
+    - "Hierarchical tree builder fix (k-ary clustering + recursive node creation)"
+    - "Config A evaluation: nDCG=0.318, epsilon L1=0.32 (proper tree)"
+    - "Summary quality inspector (scripts/inspect_summaries.py)"
+    - "Routing diagnosis: CE is net negative for routing, cosine-only is better"
+    - "Cosine-only routing for internal nodes (cascade.py)"
+    - "Beam width sweep: beam=3/5/8, confirming tree structure sound"
+    - "Summary text enrichment: summary_to_text() with all RoutingSummary fields"
+    - "Contrastive prompts: more specific terms/entities (rebuilt tree)"
+    - "Content snippets: first 200 chars in summary embeddings (rebuilt tree)"
+    - "Embedding ceiling identified: MiniLM saturated at nDCG ~0.49"
+    - "mpnet swap (no rebuild): nDCG=0.450, worse than MiniLM — tree/embedding alignment matters"
+    - "mpnet with rebuilt tree (v10): nDCG=0.540, BEST result. Routing worse but leaf scoring better."
+    - "Phase B infrastructure: --scale flag, Wikipedia loader, batched embedding, fail-fast mode"
+  test_count: 126
+  mypy_status: "clean (30+ source files)"
+  ruff_status: "clean"
 
 # Notes for next session
 notes: |
-  SESSION 2026-02-16 (session 6) SUMMARY:
+  SESSION 2026-02-17 (session 7) SUMMARY:
+
+  PHASE B INFRASTRUCTURE COMPLETE — all 8 steps implemented:
+  1. Dependencies: datasets>=2.14, tqdm>=4.66 added to pyproject.toml
+  2. Wikipedia loader: hcr_core/corpus/wikipedia.py (stream + keyword filter)
+  3. prepare_corpus.py: --scale small/medium/large, source-proportional stats
+  4. embedder.py: batch_size + show_progress (tqdm) for large corpora
+  5. generate_queries.py: checkpointing every 50 queries, source-proportional sampling
+  6. builder.py: progress logging every 100 LLM summary calls
+  7. run_benchmark.py: --scale, --tree-depth, --tree-branching, failfast mode
+  8. .gitignore: medium + large scale directories
+
+  Verification: mypy clean, ruff clean, 105 tests pass.
+  Known env issue: _lzma module missing (pyenv Python 3.12.3 without xz).
+  Fix: brew install xz && pyenv install --force 3.12.3
+
+  NEXT SESSION — EXECUTE Phase B pipeline:
+  1. Fix _lzma if it blocks anything (optional, only matters for full pytest)
+  2. prepare_corpus.py --scale medium --skip-download → ~13-25K chunks
+  3. Embed medium corpus + generate 150 queries
+  4. run_benchmark.py --scale medium --mode sanity → baselines operational
+  5. run_benchmark.py --scale medium --mode failfast → stepping stone
+  6. If medium passes: prepare_corpus.py --scale large → ~60K chunks
+  7. Build large tree (depth=4, branching=8, ~$14 in Haiku calls)
+  8. Generate 350 queries (~$0.35)
+  9. run_benchmark.py --scale large --mode failfast → DEFINITIVE TEST
+
+  KEY COMMAND:
+  set -a && source .env && set +a && python scripts/prepare_corpus.py --scale medium --skip-download
+
+  COST ESTIMATE: ~$15-20 total for tree building + query generation at large scale.
+
+  Branch: 0215jc (continuing, or merge to main and create 0218jc)
+
+  PREVIOUS SESSION (2026-02-16, session 6) SUMMARY:
 
   PHASE A COMPLETE — two ceiling experiments:
   1. v11 — beam=8 on mpnet rebuilt tree: nDCG=0.580 (+7.4% vs v10)
