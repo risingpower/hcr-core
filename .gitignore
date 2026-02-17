@@ -46,6 +46,22 @@ benchmark/queries/
 benchmark/cache/
 benchmark/results/
 
+# Medium scale benchmark data
+benchmark/corpus-medium/
+benchmark/embeddings-medium/
+benchmark/trees-medium/
+benchmark/queries-medium/
+benchmark/cache-medium/
+benchmark/results-medium/
+
+# Large scale benchmark data
+benchmark/corpus-large/
+benchmark/embeddings-large/
+benchmark/trees-large/
+benchmark/queries-large/
+benchmark/cache-large/
+benchmark/results-large/
+
 # Environment
 .env
 .env.local

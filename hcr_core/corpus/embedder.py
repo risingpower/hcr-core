@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +11,8 @@ from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
 
 from hcr_core.types.corpus import Chunk
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingCache:
@@ -59,8 +62,17 @@ class ChunkEmbedder:
         self,
         chunks: list[Chunk],
         corpus_key: str | None = None,
+        batch_size: int = 256,
+        show_progress: bool = False,
     ) -> tuple[list[str], NDArray[np.float32]]:
-        """Embed chunks, returning (chunk_ids, embeddings) with L2 normalization."""
+        """Embed chunks, returning (chunk_ids, embeddings) with L2 normalization.
+
+        Args:
+            chunks: Chunks to embed.
+            corpus_key: Cache key. If set and cached, returns cached result.
+            batch_size: Batch size for encoding. Larger = faster but more memory.
+            show_progress: Show tqdm progress bar (useful for large corpora).
+        """
         if corpus_key and self._cache and self._cache.has(corpus_key):
             result = self._cache.load(corpus_key)
             if result is not None:
@@ -68,15 +80,42 @@ class ChunkEmbedder:
 
         chunk_ids = [c.id for c in chunks]
         texts = [c.content for c in chunks]
-        raw: NDArray[np.float32] = self._model.encode(
-            texts, normalize_embeddings=True, show_progress_bar=False
-        )
-        embeddings = np.asarray(raw, dtype=np.float32)
+
+        if show_progress and len(chunks) > batch_size:
+            embeddings = self._embed_batched(texts, batch_size)
+        else:
+            raw: NDArray[np.float32] = self._model.encode(
+                texts, normalize_embeddings=True, show_progress_bar=False
+            )
+            embeddings = np.asarray(raw, dtype=np.float32)
 
         if corpus_key and self._cache:
             self._cache.save(corpus_key, chunk_ids, embeddings)
 
         return chunk_ids, embeddings
+
+    def _embed_batched(
+        self,
+        texts: list[str],
+        batch_size: int,
+    ) -> NDArray[np.float32]:
+        """Embed texts in batches with tqdm progress bar."""
+        from tqdm import tqdm
+
+        all_embeddings: list[NDArray[np.float32]] = []
+        total = len(texts)
+
+        with tqdm(total=total, desc="Embedding chunks", unit="chunk") as pbar:
+            for start in range(0, total, batch_size):
+                end = min(start + batch_size, total)
+                batch = texts[start:end]
+                raw: NDArray[np.float32] = self._model.encode(
+                    batch, normalize_embeddings=True, show_progress_bar=False
+                )
+                all_embeddings.append(np.asarray(raw, dtype=np.float32))
+                pbar.update(len(batch))
+
+        return np.vstack(all_embeddings)
 
     def embed_text(self, text: str) -> NDArray[np.float32]:
         """Embed a single text string (e.g., a query), returning a 1D normalized vector."""

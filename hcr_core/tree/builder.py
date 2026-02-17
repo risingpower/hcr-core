@@ -32,6 +32,7 @@ class TreeBuilder:
         self._depth = depth
         self._branching = branching
         self._node_counter = 0
+        self._summary_counter = 0
 
     def _next_id(self, prefix: str) -> str:
         nid = f"{prefix}-{self._node_counter}"
@@ -50,15 +51,26 @@ class TreeBuilder:
         3. Embed summaries for traversal scoring
         """
         self._node_counter = 0
+        self._summary_counter = 0
         chunk_map = {c.id: c for c in chunks}
         chunk_ids = [c.id for c in chunks]
 
+        logger.info(
+            "Building tree: %d chunks, depth=%d, branching=%d",
+            len(chunks),
+            self._depth,
+            self._branching,
+        )
+
         # Step 1: Hierarchical clustering
+        logger.info("Step 1/2: Hierarchical k-means clustering...")
         cluster_root = hierarchical_kmeans(
             embeddings, chunk_ids, self._branching, self._depth
         )
+        logger.info("Clustering complete.")
 
-        # Step 2: Recursively build tree nodes
+        # Step 2: Recursively build tree nodes (LLM summaries for each internal node)
+        logger.info("Step 2/2: Building tree nodes with LLM summaries...")
         nodes: dict[str, TreeNode] = {}
         root_id = self._build_subtree(
             cluster_node=cluster_root,
@@ -125,6 +137,7 @@ class TreeBuilder:
             summary = generate_routing_summary(self._llm, cluster_texts)
             summary.content_snippet = _extract_snippet(cluster_texts)
             summary_emb = self._embed_summary(summary)
+            self._log_summary_progress(branch_id, level, len(cluster_node.chunk_ids))
 
             nodes[branch_id] = TreeNode(
                 id=branch_id,
@@ -168,6 +181,7 @@ class TreeBuilder:
         )
         summary.content_snippet = _extract_snippet(cluster_texts)
         summary_emb = self._embed_summary(summary)
+        self._log_summary_progress(branch_id, level, len(cluster_node.chunk_ids))
 
         nodes[branch_id] = TreeNode(
             id=branch_id,
@@ -179,15 +193,19 @@ class TreeBuilder:
             summary_embedding=summary_emb,
         )
 
-        logger.info(
-            "Built node %s at level %d with %d children (%d chunks)",
-            branch_id,
-            level,
-            len(child_tree_ids),
-            len(cluster_node.chunk_ids),
-        )
-
         return branch_id
+
+    def _log_summary_progress(self, node_id: str, level: int, chunk_count: int) -> None:
+        """Log progress every 100 summary generations."""
+        self._summary_counter += 1
+        if self._summary_counter % 100 == 0:
+            logger.info(
+                "  Generated %d summaries (latest: %s, level=%d, %d chunks)",
+                self._summary_counter,
+                node_id,
+                level,
+                chunk_count,
+            )
 
     def _embed_summary(self, summary: RoutingSummary) -> list[float]:
         """Embed a routing summary for vector similarity scoring."""

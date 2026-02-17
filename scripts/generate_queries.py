@@ -5,6 +5,9 @@ Usage:
 
 Generates stratified queries across categories and difficulty levels.
 Requires ANTHROPIC_API_KEY environment variable.
+
+Supports checkpointing: saves partial results every 50 queries so
+long-running generation for large corpora can be resumed.
 """
 
 from __future__ import annotations
@@ -39,13 +42,19 @@ CATEGORY_WEIGHTS: dict[QueryCategory, float] = {
     QueryCategory.OOD: 0.05,
 }
 
+CHECKPOINT_INTERVAL = 50
+
 
 def select_chunks_for_generation(
     chunks: list[Chunk],
     count: int,
     seed: int = 42,
 ) -> list[Chunk]:
-    """Select a diverse sample of chunks for query generation."""
+    """Select a diverse, source-proportional sample of chunks for query generation.
+
+    When chunks come from multiple sources (e.g., gitlab-handbook + wikipedia),
+    sampling is proportional to each source's chunk count.
+    """
     rng = random.Random(seed)
     # Filter out very short chunks (< 50 tokens) — not enough content for good queries
     viable = [c for c in chunks if c.token_count >= 50]
@@ -54,18 +63,64 @@ def select_chunks_for_generation(
     if len(viable) <= count:
         return viable
 
-    return rng.sample(viable, count)
+    # Group by document source prefix (e.g., "gitlab-handbook-00001" -> "gitlab-handbook")
+    source_groups: dict[str, list[Chunk]] = {}
+    for chunk in viable:
+        # Extract source from document_id: everything before the last "-NNNNN"
+        parts = chunk.document_id.rsplit("-", 1)
+        source = parts[0] if len(parts) == 2 and parts[1].isdigit() else chunk.document_id
+        source_groups.setdefault(source, []).append(chunk)
+
+    if len(source_groups) <= 1:
+        return rng.sample(viable, count)
+
+    # Proportional sampling across sources
+    selected: list[Chunk] = []
+    total_viable = len(viable)
+    for source, group in source_groups.items():
+        proportion = len(group) / total_viable
+        source_count = max(1, int(count * proportion))
+        sample_size = min(source_count, len(group))
+        selected.extend(rng.sample(group, sample_size))
+        logger.info(
+            "  Source %s: %d chunks, sampling %d (%.0f%%)",
+            source,
+            len(group),
+            sample_size,
+            proportion * 100,
+        )
+
+    # If rounding left us short, fill from remaining
+    remaining_pool = [c for c in viable if c not in set(selected)]
+    while len(selected) < count and remaining_pool:
+        selected.append(remaining_pool.pop(rng.randrange(len(remaining_pool))))
+
+    rng.shuffle(selected)
+    return selected[:count]
 
 
 def generate_query_suite(
     client: ClaudeClient,
     chunks: list[Chunk],
     target_count: int,
+    output_path: Path,
     seed: int = 42,
 ) -> QuerySuite:
-    """Generate a stratified query suite from corpus chunks."""
+    """Generate a stratified query suite from corpus chunks.
+
+    Saves checkpoints every CHECKPOINT_INTERVAL queries to output_path
+    so generation can be resumed after interruption.
+    """
     rng = random.Random(seed)
     queries: list[Query] = []
+
+    # Check for existing checkpoint
+    checkpoint_path = output_path.with_suffix(".checkpoint.json")
+    if checkpoint_path.exists():
+        checkpoint_data = json.loads(checkpoint_path.read_text())
+        queries = [Query(**q) for q in checkpoint_data]
+        logger.info("Resumed from checkpoint: %d queries already generated", len(queries))
+
     categories = list(CATEGORY_WEIGHTS.keys())
 
     # Determine per-category counts
@@ -81,17 +136,28 @@ def generate_query_suite(
     for cat, n in category_counts.items():
         logger.info("  %s: %d", cat.value, n)
 
+    # Count already-generated per category (from checkpoint)
+    existing_per_cat: dict[QueryCategory, int] = {}
+    for q in queries:
+        existing_per_cat[q.category] = existing_per_cat.get(q.category, 0) + 1
+
     # Generate queries per category
     chunk_pool = list(chunks)
     rng.shuffle(chunk_pool)
     chunk_idx = 0
 
     for category, count in category_counts.items():
+        already = existing_per_cat.get(category, 0)
+        needed = count - already
+        if needed <= 0:
+            logger.info("  %s: already have %d/%d, skipping", category.value, already, count)
+            continue
+
         generated = 0
         attempts = 0
-        max_attempts = count * 3  # Allow some failures
+        max_attempts = needed * 3  # Allow some failures
 
-        while generated < count and attempts < max_attempts and chunk_idx < len(chunk_pool):
+        while generated < needed and attempts < max_attempts and chunk_idx < len(chunk_pool):
             chunk = chunk_pool[chunk_idx]
             chunk_idx += 1
             attempts += 1
@@ -105,16 +171,33 @@ def generate_query_suite(
             if query is not None:
                 queries.append(query)
                 generated += 1
+
+                # Checkpoint periodically
+                if len(queries) % CHECKPOINT_INTERVAL == 0:
+                    _save_checkpoint(queries, checkpoint_path)
+                    logger.info("  Checkpoint saved: %d queries", len(queries))
+
                 if generated % 5 == 0:
-                    logger.info("  %s: %d/%d generated", category.value, generated, count)
+                    logger.info("  %s: %d/%d generated", category.value, generated, needed)
 
         logger.info(
             "  %s: %d/%d generated (%d attempts)",
-            category.value, generated, count, attempts,
+            category.value, generated, needed, attempts,
         )
+
+    # Clean up checkpoint
+    if checkpoint_path.exists():
+        checkpoint_path.unlink()
 
     logger.info("Total queries generated: %d / %d target", len(queries), target_count)
     return QuerySuite(queries)
+
+
+def _save_checkpoint(queries: list[Query], path: Path) -> None:
+    """Save partial query list as checkpoint."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = [q.model_dump() for q in queries]
+    path.write_text(json.dumps(data))
 
 
 def main() -> None:
@@ -162,7 +245,9 @@ def main() -> None:
 
     # Generate queries (haiku is cheaper and sufficient for query generation)
     client = ClaudeClient(model="claude-3-5-haiku-20241022")
-    suite = generate_query_suite(client, selected, target_count=args.count, seed=args.seed)
+    suite = generate_query_suite(
+        client, selected, target_count=args.count, output_path=output_path, seed=args.seed,
+    )
 
     # Save
     output_path.parent.mkdir(parents=True, exist_ok=True)
