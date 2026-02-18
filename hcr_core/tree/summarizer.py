@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from hcr_core.llm.claude import ClaudeClient
 from hcr_core.types.tree import RoutingSummary
@@ -79,7 +80,7 @@ def generate_routing_summary(
     response = client.complete(prompt, system=SUMMARIZE_SYSTEM, max_tokens=512)
 
     try:
-        parsed = json.loads(response)
+        parsed = json.loads(_extract_json(response))
         return RoutingSummary(
             theme=parsed["theme"],
             includes=parsed["includes"],
@@ -92,3 +93,21 @@ def generate_routing_summary(
             f"LLM returned invalid routing summary: {e}. "
             f"Raw response: {response[:200]}"
         ) from e
+
+
+def _extract_json(text: str) -> str:
+    """Extract JSON object from LLM response that may contain preamble or code fences."""
+    text = text.strip()
+
+    # Strip markdown code fences
+    fence_match = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    # Find the first { and last } to extract the JSON object
+    first_brace = text.find("{")
+    last_brace = text.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        return text[first_brace : last_brace + 1]
+
+    return text
