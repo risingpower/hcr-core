@@ -4,13 +4,13 @@
 # Update this at session end and read at session start.
 
 version: "1.0"
-last_updated: "2026-02-17"
-last_session: "2026-02-17"
+last_updated: "2026-02-18"
+last_session: "2026-02-18"
 
 # Current focus
 current:
   phase: "validation"  # discovery | research | implementation | validation
-  focus: "Phase B infrastructure complete. Ready to run medium→large corpus pipeline."
+  focus: "Medium corpus prepared + queries generated. Ready to run medium baselines, then HCR fail-fast."
   blockers:
     - "Python _lzma module missing — pyenv Python 3.12.3 built without xz. Fix: brew install xz && pyenv install --force 3.12.3. Doesn't block corpus prep/benchmarking, only affects full pytest suite."
 
@@ -443,18 +443,19 @@ next_actions:
   - id: 5
     phase: B
     action: "Prepare medium corpus (stepping stone)"
-    status: TODO
-    details: |
-      python scripts/prepare_corpus.py --scale medium --skip-download
-      Validates pipeline at ~13-25K chunks before committing to full 60K.
-      Embed + generate 150 queries + sanity check baselines.
+    status: DONE
+    result: |
+      21,897 chunks from 3,885 docs (full GitLab handbook). Sanity check passed
+      (all 3 baselines work). 150 queries generated across 9 categories.
+      Summarizer JSON extraction fix committed (code fence stripping).
   - id: 6
     phase: B
-    action: "Run medium fail-fast"
+    action: "Run medium baselines + fail-fast"
     status: TODO
     details: |
-      python scripts/run_benchmark.py --scale medium --mode failfast
-      Stepping stone. Check if kill criteria trigger early at ~13-25K chunks.
+      Step 1: python scripts/run_benchmark.py --scale medium --mode baselines
+      Step 2: python scripts/run_benchmark.py --scale medium --mode failfast
+      Stepping stone. Check if kill criteria trigger early at ~21K chunks.
   - id: 7
     phase: B
     action: "Prepare large corpus (GitLab + Wikipedia)"
@@ -510,43 +511,44 @@ implementation:
     - "mpnet swap (no rebuild): nDCG=0.450, worse than MiniLM — tree/embedding alignment matters"
     - "mpnet with rebuilt tree (v10): nDCG=0.540, BEST result. Routing worse but leaf scoring better."
     - "Phase B infrastructure: --scale flag, Wikipedia loader, batched embedding, fail-fast mode"
+    - "Summarizer JSON extraction fix (code fence stripping)"
+    - "Medium corpus prepared: 21,897 chunks, 150 queries, sanity check passed"
   test_count: 126
   mypy_status: "clean (30+ source files)"
   ruff_status: "clean"
 
 # Notes for next session
 notes: |
-  SESSION 2026-02-17 (session 7) SUMMARY:
+  SESSION 2026-02-18 (session 8) SUMMARY:
 
-  PHASE B INFRASTRUCTURE COMPLETE — all 8 steps implemented:
-  1. Dependencies: datasets>=2.14, tqdm>=4.66 added to pyproject.toml
-  2. Wikipedia loader: hcr_core/corpus/wikipedia.py (stream + keyword filter)
-  3. prepare_corpus.py: --scale small/medium/large, source-proportional stats
-  4. embedder.py: batch_size + show_progress (tqdm) for large corpora
-  5. generate_queries.py: checkpointing every 50 queries, source-proportional sampling
-  6. builder.py: progress logging every 100 LLM summary calls
-  7. run_benchmark.py: --scale, --tree-depth, --tree-branching, failfast mode
-  8. .gitignore: medium + large scale directories
+  SHORT SESSION — medium corpus pipeline completed through query generation:
+  1. Committed summarizer JSON extraction fix (code fence stripping)
+  2. Created branch 0218jc from main
+  3. Prepared medium corpus: 21,897 chunks from 3,885 docs (full GitLab handbook)
+  4. Sanity check passed: all 3 baselines operational at 21K chunks
+  5. Generated 150 queries across 9 categories (8 parse failures recovered)
 
-  Verification: mypy clean, ruff clean, 105 tests pass.
-  Known env issue: _lzma module missing (pyenv Python 3.12.3 without xz).
-  Fix: brew install xz && pyenv install --force 3.12.3
+  SESSION DISCIPLINE: Worked in step-by-step increments with JC triggering each
+  step. No multi-hour marathons. Each step was independently verifiable.
 
-  NEXT SESSION — EXECUTE Phase B pipeline:
-  1. Fix _lzma if it blocks anything (optional, only matters for full pytest)
-  2. prepare_corpus.py --scale medium --skip-download → ~13-25K chunks
-  3. Embed medium corpus + generate 150 queries
-  4. run_benchmark.py --scale medium --mode sanity → baselines operational
-  5. run_benchmark.py --scale medium --mode failfast → stepping stone
-  6. If medium passes: prepare_corpus.py --scale large → ~60K chunks
-  7. Build large tree (depth=4, branching=8, ~$14 in Haiku calls)
-  8. Generate 350 queries (~$0.35)
-  9. run_benchmark.py --scale large --mode failfast → DEFINITIVE TEST
+  NEXT SESSION — Continue Phase B pipeline:
+  1. Run medium baselines:
+     set -a && source .env && set +a && python scripts/run_benchmark.py --scale medium --mode baselines
+  2. Run medium fail-fast (HCR vs baselines at 21K chunks):
+     set -a && source .env && set +a && python scripts/run_benchmark.py --scale medium --mode failfast
+  3. If medium passes: prepare large corpus (GitLab + Wikipedia ~60K chunks)
+  4. Build large tree (depth=4, branching=8, ~$14 in Haiku calls)
+  5. Generate 350 queries (~$0.35)
+  6. Full fail-fast at large scale — DEFINITIVE TEST
 
-  KEY COMMAND:
-  set -a && source .env && set +a && python scripts/prepare_corpus.py --scale medium --skip-download
+  COST ESTIMATE: ~$15-20 remaining for large-scale tree + queries.
 
-  COST ESTIMATE: ~$15-20 total for tree building + query generation at large scale.
+  Branch: 0218jc
+  Known env issue: _lzma module missing (pyenv). Doesn't block benchmarking.
+
+  PREVIOUS SESSION (2026-02-17, session 7):
+  Phase B infrastructure complete. 8 files changed (936 insertions).
+  Three-tier --scale, Wikipedia loader, batched embedding, fail-fast mode.
 
   Branch: 0215jc (continuing, or merge to main and create 0218jc)
 
