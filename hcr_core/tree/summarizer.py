@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from hcr_core.llm.claude import ClaudeClient
 from hcr_core.types.tree import RoutingSummary
+
+logger = logging.getLogger(__name__)
 
 SUMMARIZE_SYSTEM = (
     "You are a routing summary generator for a hierarchical retrieval system. "
@@ -77,22 +80,41 @@ def generate_routing_summary(
         sibling_context=sibling_context,
     )
 
-    response = client.complete(prompt, system=SUMMARIZE_SYSTEM, max_tokens=512)
+    last_error: Exception | None = None
+    for attempt in range(3):
+        response = client.complete(prompt, system=SUMMARIZE_SYSTEM, max_tokens=512)
+        try:
+            parsed = json.loads(_extract_json(response))
+            return RoutingSummary(
+                theme=parsed["theme"],
+                includes=parsed["includes"],
+                excludes=parsed.get("excludes", []),
+                key_entities=parsed.get("key_entities", []),
+                key_terms=parsed.get("key_terms", []),
+            )
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            last_error = e
+            logger.warning(
+                "Routing summary parse failed (attempt %d/3): %s. "
+                "Response: %s",
+                attempt + 1,
+                e,
+                response[:150],
+            )
 
-    try:
-        parsed = json.loads(_extract_json(response))
-        return RoutingSummary(
-            theme=parsed["theme"],
-            includes=parsed["includes"],
-            excludes=parsed.get("excludes", []),
-            key_entities=parsed.get("key_entities", []),
-            key_terms=parsed.get("key_terms", []),
-        )
-    except (json.JSONDecodeError, KeyError, ValueError) as e:
-        raise ValueError(
-            f"LLM returned invalid routing summary: {e}. "
-            f"Raw response: {response[:200]}"
-        ) from e
+    # All retries exhausted — build a minimal fallback from raw text
+    logger.warning(
+        "All 3 summary attempts failed. Using fallback summary. Last error: %s",
+        last_error,
+    )
+    words = " ".join(cluster_texts)[:500].split()
+    return RoutingSummary(
+        theme="(auto-fallback: unparseable cluster)",
+        includes=list(dict.fromkeys(w for w in words if len(w) > 4))[:8],
+        excludes=[],
+        key_entities=[],
+        key_terms=list(dict.fromkeys(w for w in words if len(w) > 3))[:10],
+    )
 
 
 def _extract_json(text: str) -> str:
