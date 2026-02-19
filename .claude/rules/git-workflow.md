@@ -1,18 +1,14 @@
 # Git Workflow
 
-## Branch Naming Convention
+## Branch Naming
 
-```
-{MMDD}{initials}
-```
+Feature branches. One branch per logical unit of work.
 
-Examples:
-- `0213jc` — February 13th, user jc
-- `0215ab` — February 15th, user ab
+Examples: `feat/context-retrieval-pipeline`, `fix/embedding-dimension-mismatch`, `docs/research-brief-consolidation`
 
 ## Commit Little and Often
 
-Commit and push at every meaningful checkpoint — not just at session end. This is part of the process, not an afterthought.
+Commit and push at every meaningful checkpoint — not just when a feature is complete. This is part of the process, not an afterthought.
 
 **Meaningful checkpoints include:**
 - Research brief created and scaffolded
@@ -28,20 +24,26 @@ Don't accumulate. If work has been done, commit it.
 When JC says "what's next" or starts a session:
 
 1. **Check git status** — uncommitted changes? Ask whether to commit, stash, or discard
-2. **Check current branch:**
-   - On `main` → pull latest, create today's branch (e.g., `0213jc`)
-   - On yesterday's branch → ask whether to continue or merge and start fresh
-   - On today's branch → continue working
+2. **Check current branch** — on a feature branch? Continue if work remains, otherwise switch to main
 3. **Read CLAUDE.md** — understand current state, hypothesis status, phase
 4. **Read `docs/research/_state.yaml`** — check session state and blockers
-5. **Identify next action** — what's the next research brief, open question, or implementation task?
+5. **Pick next task** from [auditsu-tasks](https://github.com/imaginaition-ltd/auditsu-tasks) — `gh issue list -R imaginaition-ltd/auditsu-tasks`
 6. **Confirm with JC** — state what I plan to work on, ask if correct
+7. **Create feature branch** — name it after the task
+
+## When a Feature Is Complete
+
+1. **Commit and push** remaining changes
+2. **Update `docs/research/_state.yaml`** — record session state, progress, blockers
+3. **Update CLAUDE.md** if project status has changed
+4. **Create a pull request** — PR is the standard merge path (see PR Workflow below)
+5. **Switch back to main** — Start a new feature branch for next task
 
 ## Session End
 
 When JC says "done for today" or "wrap up":
 
-1. **Commit and push** all changes to branch
+1. **Commit and push** all changes to current feature branch
 2. **Update `docs/research/_state.yaml`** — record session state, progress, blockers
 3. **Update CLAUDE.md** if project status has changed
 4. **Summarise** what was done this session
@@ -132,9 +134,26 @@ Check context usage with `/context` when:
 
 ## Pull Request Workflow
 
-When creating PRs:
-1. Analyse **full commit history** (not just latest commit)
-2. Use `git diff [base-branch]...HEAD` to see all changes
-3. Draft comprehensive PR summary
-4. Include test plan with TODOs
-5. Push with `-u` flag if new branch
+**PRs are the standard way to merge into main.** Do not merge branches locally.
+
+### Creating a PR
+
+1. Push the feature branch with `-u` flag if new
+2. Analyse **full commit history** (not just latest commit) using `git diff main...HEAD`
+3. Create PR via `gh pr create` with:
+   - Clear title matching the branch purpose
+   - Summary of what changed and why
+   - Test plan with verification steps
+4. Request review from the appropriate person
+
+### PR Scope
+
+- One PR per feature/fix — keep them focused and reviewable
+- If a PR grows too large, split it into smaller PRs
+- A single-commit PR is fine — small is good
+
+### After PR Is Merged
+
+1. Switch to main and pull: `git checkout main && git pull`
+2. Delete the local branch: `git branch -d <branch-name>`
+3. Start a new feature branch for the next task
