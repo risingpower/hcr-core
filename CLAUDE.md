@@ -2,7 +2,7 @@
 
 Hierarchical Context Retrieval — coarse-to-fine retrieval for LLM systems. Minimum viable context: correct answer, fewest tokens.
 
-**This is R&D.** Phase 0 (research) complete. Phase 1 (core library) implemented. Now in **empirical validation** — baselines established, ready for HCR vs baseline comparison.
+**This is R&D.** Phase 0 (research) complete. Phase 1 (core library) implemented. **Empirical validation complete — HCR hypothesis invalidated at medium scale.** Now: documenting findings for publication, researching alternative retrieval approaches.
 
 ## Git Workflow
 
@@ -76,9 +76,9 @@ Lead research assistant. JC steers, I lead execution. I recommend (defaulting to
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **0. Research & validation** | Validate hypothesis, prior art, scoring mechanics | **Complete** (6/6 briefs) |
-| **1. Core library** | Tree, traversal, scoring, pointer resolution, benchmark | **Current** |
-| **2. Integration layer** | Connectors for external data sources | Planned |
-| **3. Autonomous index manager** | Agent that maintains the tree | Planned |
+| **1. Core library** | Tree, traversal, scoring, pointer resolution, benchmark | **Complete — hypothesis invalidated** |
+| **1b. Publication** | Document findings, novel metrics, negative result | **Current** |
+| **1c. Alternative research** | Evaluate alternative retrieval approaches | **Next** |
 
 ## The Hypotheses
 
@@ -86,11 +86,11 @@ Original H1 ("elimination > similarity") retired after RB-002. Reframed as three
 
 | ID | Statement | Confidence | Key Test |
 |----|-----------|------------|----------|
-| **H1a** | Hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity while using fewer tokens (design target: 400 tokens, adaptive not hard-capped) | 65% | RB-006 benchmark |
-| **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | 80% | RB-006 benchmark |
-| **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | 75% | **RB-003** (confirmed — cascade achieves ε ≈ 0.01–0.02) |
+| **H1a** | Hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity while using fewer tokens | ~~65%~~ | **INVALIDATED** — nDCG 0.094 vs 0.749 at medium scale |
+| **H1b** | Coarse elimination + fine similarity outperforms either pure approach alone | ~~80%~~ | **INVALIDATED** — coarse elimination destroys recall at scale |
+| **H1c** | Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d | **95%** | **CONFIRMED** — as mechanism of failure. ε compounds at depth=5, driving nDCG from 0.580→0.094 |
 
-Scoring feasibility (RB-003), construction feasibility (RB-004), failure mode analysis (RB-005), and benchmark design (RB-006) all confirmed. No showstopper identified across six research briefs. Remaining uncertainty is empirical — Phase 1 benchmark will validate or invalidate all three hypotheses.
+All three hypotheses empirically resolved. H1a and H1b invalidated by medium-scale benchmark. H1c confirmed — per-level ε is indeed the exponential lever, but current embedding-based routing cannot achieve sufficient ε at scale.
 
 **Baseline results (2026-02-15):**
 
@@ -159,7 +159,18 @@ Phase B code infrastructure is complete. All scripts support `--scale small|medi
 | `hcr_core/tree/builder.py` | Progress logging every 100 LLM summary calls. |
 | `scripts/run_benchmark.py` | `--scale`, `--tree-depth`, `--tree-branching`, `failfast` mode (RB-006 kill sequence). |
 
-**Next: Execute the pipeline** — medium corpus first (stepping stone), then large (definitive test).
+**Medium fail-fast result (2026-02-19):**
+
+| System | Corpus | nDCG@10 | Recall@10 | MRR | MeanTok |
+|--------|--------|---------|-----------|-----|---------|
+| BM25 | 21,897 | 0.522 | 0.693 | 0.472 | 336 |
+| Hybrid-RRF | 21,897 | 0.594 | 0.767 | 0.548 | 352 |
+| **Flat+CE** | **21,897** | **0.749** | **0.860** | **0.717** | **349** |
+| **HCR** | **21,897** | **0.094** | **0.140** | **0.085** | **292** |
+
+**KILLED at step 3.** HCR nDCG 0.094 is 0.667 below Flat+CE — catastrophic routing failure at scale. Tree: 25,716 nodes, 3,819 internal, depth=5, 8 root branches. SD=0.445 (pass). nDCG dropped from 0.580 (small, 315 chunks) to 0.094 (medium, 21,897 chunks). Routing epsilon compounds at (1-ε)^5 — even moderate per-level error means near-random leaf selection. Large corpus test not needed; the hypothesis is invalidated.
+
+**Project status: Research publication phase.** Documenting findings (novel per-level ε metric, negative result on embedding-based tree routing at scale). Researching alternative retrieval approaches for the use case.
 
 **Per-category analysis (2026-02-15):**
 
@@ -270,7 +281,8 @@ tests/                           # Test suite (Phase 1+)
 ## Decisions Made
 
 - **ADR-001:** Go/no-go on Phase 1 — decision is GO based on six research briefs with no showstoppers. Benchmark design convergent across 4 sources. First implementation deliverable: benchmark infrastructure.
-- **ADR-002:** Validation checkpoint after 10 HCR configs on 315-chunk corpus. Best nDCG=0.540, kill baseline=0.835. Decision: **Phase A** (2 ceiling experiments: beam=8 mpnet, BM25 hybrid routing) then **Phase B** (scale up to 50K-100K chunks per RB-006). Scale is a confound — HCR designed for large corpora, tested on small. **Phase A complete (nDCG=0.580). Phase B infrastructure built. Ready for execution.**
+- **ADR-002:** Validation checkpoint after 10 HCR configs on 315-chunk corpus. Best nDCG=0.540, kill baseline=0.835. Decision: Phase A (ceiling experiments) then Phase B (scale-up). **Phase A: nDCG=0.580 (below 0.65 threshold). Phase B: KILLED at medium scale — nDCG=0.094 vs flat+CE 0.749. Hypothesis invalidated.**
+- **ADR-003:** Post-invalidation direction — document findings for publication (novel per-level ε metric, systematic negative result). Research alternative retrieval approaches for the use case.
 
 ## Open Questions
 
