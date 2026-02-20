@@ -1,5 +1,7 @@
 # HCR: Hierarchical Context Retrieval
 
+[![DOI](https://zenodo.org/badge/1162601095.svg)](https://doi.org/10.5281/zenodo.18713920)
+
 Coarse-to-fine retrieval for LLM systems. Research code accompanying:
 
 > **Per-Level Routing Error Compounds Exponentially: A Negative Result on Embedding-Based Hierarchical Retrieval at Scale**
