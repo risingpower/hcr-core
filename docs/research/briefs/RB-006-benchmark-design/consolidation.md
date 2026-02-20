@@ -72,8 +72,8 @@ All sources mention the race design returns the "higher-confidence result" but n
 ### 4. Cost estimates vary wildly
 Claude: $8–20 Phase 1. GPT: not specified in dollar terms. Perplexity: "tens of millions of tokens." Gemini: not quantified. Claude's estimate is the most concrete and seems realistic for 200–300 queries with GPT-4o-mini as judge. **Recommend budgeting $30–50 to account for iteration and reruns.**
 
-### 5. None addressed Su integration testing
-The benchmark validates HCR as a retrieval system. It does not test how Su (the agentic consumer) would decompose budget-impossible queries into multi-turn retrieval. **Correct to defer** — Su integration is a Phase 2 concern. Phase 1 validates the retrieval primitive.
+### 5. None addressed consumer integration testing
+The benchmark validates HCR as a retrieval system. It does not test how an agentic consumer would decompose budget-impossible queries into multi-turn retrieval. **Correct to defer** — consumer integration is a Phase 2 concern. Phase 1 validates the retrieval primitive.
 
 ---
 

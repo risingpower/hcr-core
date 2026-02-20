@@ -109,7 +109,7 @@ Solving this cross-branch routing failure requires moving beyond naive hard clus
 
 Soft clustering, theoretically supported by Gaussian Mixture Models or probabilistic topic models, permits a single document or chunk to exist in multiple leaf nodes simultaneously. If a document exhibits a thirty percent probability of belonging to an engineering branch and a seventy percent probability of belonging to a legal branch, soft clustering simply places a pointer in both subtrees.
 
-While this mathematically eliminates the risk of cross-branch query failures, it introduces cascading architectural inefficiencies. Duplicated content artificially inflates the token volume of summary nodes at every level above the duplication, heavily diluting the information density of the summaries. Furthermore, in an agentic system like Su, where dynamic maintenance is paramount, updating or deprecating a single document requires the system to track and independently execute updates across multiple disconnected subtrees, creating severe consistency hazards and dramatically escalating write amplification.
+While this mathematically eliminates the risk of cross-branch query failures, it introduces cascading architectural inefficiencies. Duplicated content artificially inflates the token volume of summary nodes at every level above the duplication, heavily diluting the information density of the summaries. Furthermore, in an agentic system where dynamic maintenance is paramount, updating or deprecating a single document requires the system to track and independently execute updates across multiple disconnected subtrees, creating severe consistency hazards and dramatically escalating write amplification.
 
 ### **Directed Acyclic Graphs and Link Structures**
 
@@ -152,7 +152,7 @@ Table 3 models the optimal information distribution strategy across a constraine
 
 ## **Dynamic Index Maintenance and Incremental Evolution**
 
-The assumption of a static, immutable corpus is a fatal flaw for production retrieval systems. As an agentic organizational knowledge base like Su evolves—ingesting daily reports, modifying codebases, and deprecating outdated policies—the underlying semantic distribution shifts continuously. Traditional clustering architectures suffer from a catastrophic inability to accommodate incremental insertions gracefully.
+The assumption of a static, immutable corpus is a fatal flaw for production retrieval systems. As an agentic organizational knowledge base evolves—ingesting daily reports, modifying codebases, and deprecating outdated policies—the underlying semantic distribution shifts continuously. Traditional clustering architectures suffer from a catastrophic inability to accommodate incremental insertions gracefully.
 
 ### **The Global Reconstruction Bottleneck**
 

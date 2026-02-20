@@ -189,7 +189,7 @@ From RB-005 (failure modes):
 > - **Scoring cascade:** Per level: hybrid BM25+dense pre-filter (all children) → top-3 → cross-encoder rerank → top-1–2. Path-relevance EMA across depth (α=0.5).
 > - **Token budget:** 400 tokens as design aspiration (adaptive, not hard-capped). AdaGReS-style submodular knapsack for chunk selection (relevance − redundancy under token constraint).
 > - **Cross-branch defense:** Content decomposition, soft assignment (1–3 parents), entity cross-links, beam diversity, collapsed-tree co-primary path.
-> - **Target domain:** Organisational knowledge base — policies, procedures, projects, people, tools, communications, technical docs. Consumed by an agentic system (Su) that needs precise retrieval from a growing knowledge base.
+> - **Target domain:** Organisational knowledge base — policies, procedures, projects, people, tools, communications, technical docs. Consumed by an agentic system that needs precise retrieval from a growing knowledge base.
 >
 > **The three hypotheses to validate:**
 >

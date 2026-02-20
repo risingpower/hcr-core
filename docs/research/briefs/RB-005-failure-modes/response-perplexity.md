@@ -33,7 +33,7 @@ Specifically:
     - **Comparative queries** ("how does X differ from Y?" where X and Y are in different branches)
     - **Aggregation queries** ("how many...", "list all...", "what's the total...")
     - **Temporal queries** ("what changed between..." where history spans branches)
-    - For each sub-type: how common is it in organisational knowledge bases (like the target consumer Su)? How effective is each of our five defense layers against it? What is the expected recall after all mitigations?
+    - For each sub-type: how common is it in organisational knowledge bases (like an agentic command centre)? How effective is each of our five defense layers against it? What is the expected recall after all mitigations?
 3. **Query distribution analysis.** The severity of failure modes depends on what queries actually look like in practice. For an organisational knowledge base (policies, procedures, projects, people, tools, communications):
     - What fraction of queries are single-branch (answer exists entirely within one subtree)?
     - What fraction are cross-branch (answer requires evidence from multiple subtrees)?
@@ -141,7 +141,7 @@ From RB-004 (tree construction):
 > - Cross-branch queries are the \#1 known failure mode — no single mitigation solves them (all briefs)
 > - No system in the literature reports per-level routing accuracy — failure rates are unquantified (RB-001, RB-003)
 >
-> **The target domain is an organisational knowledge base** — a personal/team knowledge system containing: policies, procedures, project documentation, meeting notes, tool configurations, people directories, communications history, technical documentation, and reference materials. The consumer (Su) is an agentic command centre that needs precise retrieval from this growing knowledge base.
+> **The target domain is an organisational knowledge base** — a personal/team knowledge system containing: policies, procedures, project documentation, meeting notes, tool configurations, people directories, communications history, technical documentation, and reference materials. The consumer is an agentic command centre that needs precise retrieval from this growing knowledge base.
 >
 > I need a **comprehensive failure mode analysis**. Specifically:
 >
@@ -154,7 +154,7 @@ From RB-004 (tree construction):
 >    - What fraction are detail (specific facts, identifiers) vs thematic (broad topics)?
 >    - What fraction are entity-centric vs concept-centric?
 >    - Is there empirical data from enterprise search, knowledge management, or RAG deployment studies?
->    - How does the Su use case (agentic, precision-focused, growing knowledge base) differ from academic retrieval benchmarks?
+>    - How does an agentic use case (precision-focused, growing knowledge base) differ from academic retrieval benchmarks?
 >
 > 4. **DPI (Data Processing Inequality) failure analysis.** Summaries lose information. When does this cause routing failure vs merely degraded ranking? What types of information are most likely to be lost? How does the structured routing summary format mitigate this? At what corpus heterogeneity does DPI failure dominate?
 >
@@ -208,7 +208,7 @@ The rest of this answer:
 
 ## 1. Failure taxonomy for HCR
 
-Below is a compact taxonomy by stage. For each, “severity” is the impact *conditional on the failure being triggered* (low: re‑ranking/quality only; medium: partial answer; high: answer‑killing). Frequency estimates are for a reasonably curated organisational KB like Su’s, based on enterprise‑search studies and RAG practice, but are necessarily approximate and partly speculative.
+Below is a compact taxonomy by stage. For each, “severity” is the impact *conditional on the failure being triggered* (low: re‑ranking/quality only; medium: partial answer; high: answer‑killing). Frequency estimates are for a reasonably curated organisational KB based on enterprise‑search studies and RAG practice, but are necessarily approximate and partly speculative.
 
 ### 1.1 Tree construction \& representation
 
@@ -217,7 +217,7 @@ Below is a compact taxonomy by stage. For each, “severity” is the impact *co
 - **Mechanism:** Bisecting k‑means creates high‑level partitions that mix many topical dimensions (e.g., policy vs product vs time vs team). Relevant items for many queries are scattered across branches. This is the classic failure in Voorhees’ cluster‑based retrieval: retrieving whole clusters tends to underperform document‑level retrieval on heterogeneous corpora.[^1_1][^1_2]
 - **Triggers:** Broad, heterogeneous corpora (mixed domains, long multi‑topic docs); queries that cut across orthogonal facets (e.g., “incident reports involving contractor X in Europe since 2023”) rather than along a single topical dimension.
 - **Severity:** High when it hits: routing can systematically exclude necessary subtrees; beam search explores the wrong “axes of variation.”
-- **Frequency:** For a heterogeneous enterprise corpus, empirical work suggests cluster‑hypothesis failures approaching 40–50% on broad collections vs <10% on narrow domains. For Su‑style KBs, expect this to affect maybe 20–40% of queries that are not cleanly topical (multi‑facet, multi‑entity, time‑sliced).[^1_3][^1_1]
+- **Frequency:** For a heterogeneous enterprise corpus, empirical work suggests cluster‑hypothesis failures approaching 40–50% on broad collections vs <10% on narrow domains. For agentic KBs, expect this to affect maybe 20–40% of queries that are not cleanly topical (multi‑facet, multi‑entity, time‑sliced).[^1_3][^1_1]
 - **Mitigations:**
 – Content decomposition to atomic units (reduces multi‑topic contamination).
 – Soft assignment and entity cross‑links (let content live under multiple parents).
@@ -350,7 +350,7 @@ These are partially consequences of F8/F9 but worth isolating.
 - **Mechanism:** Children of a node get very similar scores; selection among them is effectively noise. With small k and depth>1, error compounds as in RB‑002.
 - **Triggers:** Over‑broad or generic summaries; queries that are only weakly related to the tree’s top‑level axes; very heterogeneous branches.
 - **Severity:** High when it happens; plateau behaves like high ε.
-- **Frequency:** Expect plateaus at some rate in any large KB; empirically, cluster‑based retrieval gains vanish or reverse when cluster similarity is low. For Su, perhaps 10–20% of queries at some node in the path.[^1_2][^1_1]
+- **Frequency:** Expect plateaus at some rate in any large KB; empirically, cluster‑based retrieval gains vanish or reverse when cluster similarity is low. In practice, perhaps 10–20% of queries at some node in the path.[^1_2][^1_1]
 - **Mitigations:** Confidence measures on per‑node scores; switching to collapsed‑tree retrieval when margins are small; better contrastive summaries.
 - **Residual risk:** Medium.
 
@@ -489,7 +489,7 @@ These are partially consequences of F8/F9 but worth isolating.
 
 ### 2.1 Sub‑types, examples, and rough frequency
 
-These are high‑level estimates for an enterprise KB used by an agentic assistant like Su:
+These are high‑level estimates for an enterprise KB used by an agentic assistant like the target system:
 
 - **Single‑branch queries (answer lives in one subtree):** Perhaps 60–80% of all queries. Typical examples: “What is our remote‑work policy?”; “How do I reset my VPN?”
 - **Cross‑branch queries overall:** Roughly 20–40%, including:
@@ -599,7 +599,7 @@ There is limited public data on *enterprise* log distributions for privacy reaso
     - Navigational: “HR”, “library”;
     - Transactional: “claim expenses”;
     - Informational: “IP policy”, “product xyz error 57”.[^1_10]
-– For Su, focus is heavily on informational and some transactional (“file X”, “trigger workflow Y”); navigational is often abstracted away.
+– For an agentic system, focus is heavily on informational and some transactional (“file X”, “trigger workflow Y”); navigational is often abstracted away.
 - **Single‑branch vs cross‑branch:**
 – There is no direct measurement. Based on case studies of tasks (call‑center knowledge, proposal writing, expertise finding), many queries are “local” (single domain), but high‑value tasks like troubleshooting and analytics are inherently cross‑branch.[^1_10]
 – A plausible band is:
@@ -611,14 +611,14 @@ There is limited public data on *enterprise* log distributions for privacy reaso
 – Thematic queries (“how do we handle customer data retention?”) remain the majority but detail queries are *over‑represented* in failure and high‑value cases.
 - **Entity‑centric vs concept‑centric:**
 – Enterprise scenarios Hawking describes (expertise finding, CRM, call‑center tasks) are often entity‑centric: people, customers, products, or systems.[^1_10]
-– A rough split: 40–60% entity‑centric, 40–60% concept‑centric, varying by organization. Su’s workload (projects, tools, incidents, people) likely skews slightly entity‑heavy.
+– A rough split: 40–60% entity‑centric, 40–60% concept‑centric, varying by organization. An agentic workload (projects, tools, incidents, people) likely skews slightly entity‑heavy.
 
 
 ### 3.2 Differences vs academic benchmarks
 
 - Multi‑hop QA benchmarks (HotpotQA, 2Wiki, MuSiQue, MultiHop‑RAG) assume cross‑document evidence is *the norm* (100% of queries). That overstates cross‑branch prevalence vs a typical KB, but is a good stress‑test distribution.[^1_17][^1_18]
 - Enterprise queries are less carefully worded, more ambiguous, and more task‑driven; they also include many navigational and transactional intents largely absent from QA benchmarks.[^1_10]
-- For Su, design and evaluation should therefore:
+- For an agentic system, design and evaluation should therefore:
 – Treat cross‑branch/multi‑hop queries as a *minority of all traffic but a majority of “hard” cases*;
 – Weight evaluation toward these harder cases, since they are where HCR differs most from flat retrieval.
 
@@ -820,7 +820,7 @@ Overall, HCR is not dominated by flat retrieval: it trades *localized, diagnosab
 
 ### 9.1 Expected overall failure rate (answerable but missed due to retrieval)
 
-Given all the above, a reasonable ballpark for Su’s target domain:
+Given all the above, a reasonable ballpark for the target domain:
 
 - **Single‑branch, informational and detail queries (≈60–80% of load):**
 – With ε≈0.01–0.02, d=2, k=3–5, strong summaries, and AdaGReS, end‑to‑end retrieval recall in the **95–99%** range is plausible. Most residual failures come from vocabulary mismatch and DPI on extreme detail queries.

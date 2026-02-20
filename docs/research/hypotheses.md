@@ -2,7 +2,7 @@
 
 Track beliefs, confidence levels, and validation status.
 
-**Last Updated:** 2026-02-13
+**Last Updated:** 2026-02-20
 
 ---
 
@@ -10,130 +10,17 @@ Track beliefs, confidence levels, and validation status.
 
 | Status | Count |
 |--------|-------|
-| Validated | 0 |
-| Invalidated | 0 |
-| Uncertain | 3 (H1a: 65%, H1b: 80%, H1c: 75%) |
+| Confirmed | 1 (H1c) |
+| Invalidated | 2 (H1a, H1b) |
+| Uncertain | 0 |
 | Retired | 1 |
-| **Total Active** | **3** |
+| **Total Resolved** | **3** |
 
 ---
 
 ## Active Hypotheses
 
-### H1a: Token efficiency of hierarchical retrieval
-
-**Status:** uncertain
-**Confidence:** 65%
-**Created:** 2026-02-13
-**Last Updated:** 2026-02-13
-
-**Statement:**
-Hierarchical coarse-to-fine retrieval achieves equivalent or better answer accuracy than flat similarity retrieval while using fewer tokens. Design target: 400 tokens (aspiration, not hard limit — budget is adaptive per query type; the metric is "fraction of queries answerable under 400 tokens").
-
-**Evidence For:**
-- RB-001: Prior art shows hierarchical systems (RAPTOR, LATTICE) outperform flat RAG by 2-20pp on complex tasks
-- RB-001: No existing system targets hard token budgets as primary constraint — this is an untested but structurally sound niche
-- RB-002: Hierarchy provably reduces search space, which directly maps to fewer retrieved tokens
-- RB-004: Federated search finding — 300–500 sampled documents per source produce effective routing (CORI) — suggests routing index can work even with partial source access under tight budgets
-
-**Evidence Against:**
-- RB-002: Strict elimination compounds error at (1-ε)^d — token savings from aggressive pruning come at accuracy cost
-- RB-001: RAPTOR's collapsed-tree approach (enter at any level) suggests rigid top-down traversal isn't optimal — token efficiency may require flexible entry points
-
-**Implications:**
-- If true: HCR's core value proposition is validated — correct answers with minimum context
-- If false: Hierarchy may still help quality but not enough to justify the constraint; token budgets may need to be relaxed or the approach rethought
-
-**Validation Path:**
-- RB-003 (scoring mechanics) informs feasibility of maintaining accuracy under tight budgets
-- RB-006 (benchmark design) will define the experimental protocol
-- Empirical test: compare HCR (<400 tokens) vs flat retrieval (unconstrained) on precision-critical queries
-
-**History:**
-- 2026-02-13: Created at 65%. Split from original H1 after RB-002 theoretical analysis. Prior art supports hierarchy advantage; token budget constraint is novel and untested.
-- 2026-02-13: RB-004 adds federated search evidence (CORI: effective routing from partial representations). No confidence change — RB-006 benchmark needed to test token budget claim directly.
-- 2026-02-13: RB-005 failure analysis shows 400-token constraint creates a hard impossibility class (~5–20% of queries: aggregation, exhaustive listing, temporal diffs). H1a should be scoped to "single-branch and entity-spanning queries" (~75% of workload) where token efficiency is achievable. No confidence change — scoping, not disconfirmation.
-- 2026-02-13: 400 tokens reframed from hard limit to design aspiration. Architecture designs for 400 but adapts per query. Success metric becomes "fraction answerable under 400 tokens" rather than pass/fail. RB-006 should benchmark at multiple budget levels (200, 400, 800, 1200) to find the accuracy/budget curve.
-
----
-
-### H1b: Hybrid coarse-to-fine superiority
-
-**Status:** uncertain
-**Confidence:** 80%
-**Created:** 2026-02-13
-**Last Updated:** 2026-02-13
-
-**Statement:**
-Coarse elimination (hierarchy-guided routing) combined with fine similarity search within surviving branches outperforms either pure elimination or pure similarity retrieval alone on precision and recall.
-
-**Evidence For:**
-- RB-002: Three independent sources converge — hybrid coarse-to-fine is theoretically optimal under realistic conditions
-- RB-002: RAPTOR's collapsed-tree result empirically demonstrates that flexible traversal (a form of coarse-to-fine) beats strict top-down
-- RB-002: Information-theoretic analysis shows hierarchy reduces entropy (good for routing) while similarity handles residual ambiguity (good for selection)
-- RB-004: Three-source convergence on top-down divisive clustering + beam search traversal — the construction literature independently recommends the hybrid architecture as the natural design, not just the theoretical optimum
-- RB-004: Selective search (shard selection → flat search within selected shards) is structurally identical to HCR's hybrid approach and is a proven paradigm in federated search
-- RB-004: Bonsai/PECOS from XMC literature confirms shallow+wide (K=100, depth 1–2) outperforms deep binary trees — empirical support for coarse routing
-
-**Evidence Against:**
-- RB-002: Under stringent conditions (strong clustering, admissible scoring, modest depth), strict elimination alone can match or beat hybrid — but these conditions are hard to guarantee in practice
-- No direct empirical comparison of hybrid vs enriched flat RAG (with reranking, HyDE, etc.) under identical conditions
-
-**Implications:**
-- If true: HCR's traversal strategy should be "route coarsely, search finely" — beam width > tree depth
-- If false: One of the pure approaches dominates, simplifying the architecture but narrowing the advantage
-
-**Validation Path:**
-- ~~RB-003 will determine scoring feasibility for the coarse routing stage~~ — **confirmed** (cascade architecture, ε ≈ 0.01–0.02)
-- ~~RB-004 (tree construction) will determine if trees can be built to support coarse routing effectively~~ — **confirmed** (convergent construction recipe with principled methods)
-- Empirical test: compare pure elimination, pure similarity, and hybrid on same corpus and queries (RB-006)
-
-**History:**
-- 2026-02-13: Created at 75%. Strongest theoretical support of the three sub-hypotheses. Three-source consensus from RB-002.
-- 2026-02-13: Updated to 80%. RB-004 provides three-source construction consensus directly supporting the hybrid architecture. Top-down divisive clustering + beam search IS the hybrid approach. Selective search from federated search literature is a proven analog. Both validation gates (RB-003 scoring, RB-004 construction) now confirmed — remaining uncertainty is purely empirical (RB-006).
-- 2026-02-13: RB-005 failure analysis reinforces — all three sources confirm neither pure hierarchy nor pure flat retrieval is optimal. RAPTOR collapsed-tree evidence promotes collapsed retrieval to co-primary path alongside beam-search traversal. No confidence change — H1b is already well-supported.
-
----
-
-### H1c: Scoring quality as exponential lever
-
-**Status:** uncertain
-**Confidence:** 75%
-**Created:** 2026-02-13
-**Last Updated:** 2026-02-13
-
-**Statement:**
-Per-level scoring quality is the primary determinant of hierarchical retrieval quality, with error compounding at (1-ε)^d where ε is per-level error rate and d is tree depth. Achieving admissible or calibrated scoring is both feasible and necessary for HCR to outperform flat retrieval.
-
-**Evidence For:**
-- RB-002: All three sources identify (1-ε)^d as the governing equation — small improvements in ε yield exponential gains
-- RB-002: This is mathematically derived, not empirical speculation — the compounding is structural
-- RB-001: LATTICE uses LLM-as-judge scoring and achieves strong results, suggesting high-quality scoring is feasible
-- RB-003: Cascade architecture (hybrid pre-filter → cross-encoder) achieves ε ≈ 0.01–0.02 per level at ~40–80ms latency — feasible and within target
-- RB-003: LATTICE ablations confirm scoring calibration has large impact on end-to-end performance; path-relevance EMA is the highest-leverage component
-- RB-004: Summary quality confirmed as the #1 upstream factor with a convergent construction recipe — structured contrastive routing summaries, entity preservation, and ColBERT-style multi-vector representations directly enable low-ε scoring
-
-**Evidence Against:**
-- RB-002: "Admissible" scoring (never incorrectly prune the correct branch) may be unrealistically strict in practice
-- RB-001: No system in the prior art reports achieving formally admissible scoring bounds
-- RB-003: Strict admissibility confirmed impossible for semantic relevance — only achievable for embedding-distance proximity, not answer relevance
-- RB-003: ε is dominated by summary quality and query distribution, not scoring method alone — "scoring quality" is a system property, not a function property
-- RB-004: Summary hallucination risk (~4% in RAPTOR) could inject false routing signals — hallucinated hook terms are more dangerous than hallucinated narrative because hooks drive elimination decisions
-
-**Implications:**
-- If true: Scoring is where R&D effort should concentrate — it's the highest-leverage component
-- If false: Scoring quality has diminishing returns, and the architecture should compensate with wider beams or shallower trees instead
-
-**Validation Path:**
-- **RB-003 (scoring mechanics) is the direct test** — what scoring methods exist, what accuracy is achievable, at what cost
-- Empirical: measure per-level accuracy of different scoring methods (embeddings, LLM-as-judge, hybrid, geometric bounds)
-- Sensitivity analysis: how does retrieval quality degrade as ε increases?
-
-**History:**
-- 2026-02-13: Created at 70%. Mathematically grounded via RB-002. Feasibility of admissible scoring is the open question — RB-003 will address this directly.
-- 2026-02-13: Updated to 75%. RB-003 confirms (1-ε)^d mechanism and demonstrates feasible cascade architecture achieving ε ≈ 0.01–0.02. Strict admissibility ruled out; probabilistic ε control is the path. Key nuance: "scoring quality" = full system (summaries + cascade + calibration + beam), not one function.
-- 2026-02-13: RB-004 adds construction-side evidence. Routing summaries (structured, contrastive, entity-preserving) are the upstream enabler for low ε. Also adds hallucination risk as a new "evidence against" factor. No confidence change — H1c is about scoring feasibility (already confirmed by RB-003); construction quality supports but doesn't independently change the scoring claim.
-- 2026-02-13: RB-005 failure analysis partially challenges the mechanism. Entity cross-link quality is at least as important as per-level scoring quality for the dominant query type (entity-spanning, 15–25% of queries; entity-centric overall: 40–55%). Scoring quality matters most for thematic routing; entity cross-links matter most for entity-centric routing. Both are primary determinants for different query classes. No confidence change, but the "primary determinant" statement needs broadening: it's "per-level scoring quality AND entity cross-link quality" depending on query type.
+*All hypotheses resolved. See Invalidated and Confirmed sections below.*
 
 ---
 
@@ -157,15 +44,71 @@ The original hypothesis drove the right research. Its failure as stated is a fea
 
 ---
 
-## Validated Hypotheses
+## Confirmed Hypotheses
 
-*None yet.*
+### H1c: Scoring quality as exponential lever
+
+**Status:** CONFIRMED (as mechanism of failure)
+**Final Confidence:** 95%
+**Created:** 2026-02-13
+**Resolved:** 2026-02-19
+
+**Statement:**
+Per-level scoring quality is the primary determinant of hierarchical retrieval quality, with error compounding at (1-ε)^d where ε is per-level error rate and d is tree depth.
+
+**Resolution:**
+Confirmed empirically as the mechanism that invalidated H1a and H1b. Per-level epsilon measured for the first time in any hierarchical retrieval system. At depth=5 (medium corpus, 21,897 chunks), even moderate per-level error produces catastrophic end-to-end failure: nDCG dropped from 0.580 (small, depth=3) to 0.094 (medium, depth=5). The (1-ε)^d compounding is the governing equation, exactly as theoretically predicted.
+
+**Key evidence:**
+- Small-scale per-level epsilon (default config): L0=0.00, L1=0.22, L2=0.50, L3=0.58, L4=0.84
+- Best config (v11, beam=8): L1=0.06, L2=0.28 --- dramatically better but still insufficient at scale
+- Beam width monotonically improves epsilon at every level, confirming the mechanism
+- Medium-scale collapse to nDCG=0.094 confirms compounding across 5 levels is fatal
+
+**Note:** H1c is confirmed as a mechanism, but the second part of the hypothesis --- that achieving sufficient ε is "feasible" with embedding-based routing --- is invalidated. The mechanism works as predicted; the routing quality required is not achievable with current embedding approaches.
 
 ---
 
 ## Invalidated Hypotheses
 
-*None yet.*
+### H1a: Token efficiency of hierarchical retrieval
+
+**Status:** INVALIDATED
+**Final Confidence:** 0%
+**Created:** 2026-02-13
+**Resolved:** 2026-02-19
+
+**Statement:**
+Hierarchical coarse-to-fine retrieval achieves equivalent or better answer accuracy than flat similarity retrieval while using fewer tokens.
+
+**Resolution:**
+Invalidated at medium scale. HCR achieved nDCG@10 = 0.094 vs Flat+CE = 0.749 at 21,897 chunks. While HCR maintained token efficiency (292 tokens vs 349), the tokens it selected were overwhelmingly incorrect due to routing failure. Token savings are meaningless when accuracy collapses.
+
+**Key evidence:**
+- Small scale: best HCR nDCG=0.580, Flat+CE=0.835 (gap=0.255)
+- Medium scale: HCR nDCG=0.094, Flat+CE=0.749 (gap=0.655)
+- Fail-fast kill at Phase B step 3
+
+---
+
+### H1b: Hybrid coarse-to-fine superiority
+
+**Status:** INVALIDATED
+**Final Confidence:** 0%
+**Created:** 2026-02-13
+**Resolved:** 2026-02-19
+
+**Statement:**
+Coarse elimination combined with fine similarity search outperforms either pure approach alone.
+
+**Resolution:**
+Invalidated. Coarse elimination via embedding-based routing destroys recall at scale. The hybrid approach (coarse routing + fine similarity within surviving branches) never outperformed pure flat similarity + cross-encoder at any configuration tested. Twelve configs across two embedding models and four routing strategies all failed to match the kill baseline.
+
+**Key evidence:**
+- Best HCR config (v11): nDCG=0.580 vs Flat+CE=0.835 at small scale
+- All 12 configs below kill baseline
+- Medium scale: catastrophic collapse to nDCG=0.094
+- Routing error compounds multiplicatively, negating any benefit from hierarchical structure
 
 ---
 

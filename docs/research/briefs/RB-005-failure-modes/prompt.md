@@ -32,7 +32,7 @@ Specifically:
    - **Comparative queries** ("how does X differ from Y?" where X and Y are in different branches)
    - **Aggregation queries** ("how many...", "list all...", "what's the total...")
    - **Temporal queries** ("what changed between..." where history spans branches)
-   - For each sub-type: how common is it in organisational knowledge bases (like the target consumer Su)? How effective is each of our five defense layers against it? What is the expected recall after all mitigations?
+   - For each sub-type: how common is it in organisational knowledge bases (like the target consumer, an agentic command centre)? How effective is each of our five defense layers against it? What is the expected recall after all mitigations?
 
 3. **Query distribution analysis.** The severity of failure modes depends on what queries actually look like in practice. For an organisational knowledge base (policies, procedures, projects, people, tools, communications):
    - What fraction of queries are single-branch (answer exists entirely within one subtree)?
@@ -138,7 +138,7 @@ From RB-004 (tree construction):
 > - Cross-branch queries are the #1 known failure mode — no single mitigation solves them (all briefs)
 > - No system in the literature reports per-level routing accuracy — failure rates are unquantified (RB-001, RB-003)
 >
-> **The target domain is an organisational knowledge base** — a personal/team knowledge system containing: policies, procedures, project documentation, meeting notes, tool configurations, people directories, communications history, technical documentation, and reference materials. The consumer (Su) is an agentic command centre that needs precise retrieval from this growing knowledge base.
+> **The target domain is an organisational knowledge base** — a personal/team knowledge system containing: policies, procedures, project documentation, meeting notes, tool configurations, people directories, communications history, technical documentation, and reference materials. The consumer is an agentic command centre that needs precise retrieval from this growing knowledge base.
 >
 > I need a **comprehensive failure mode analysis**. Specifically:
 >
@@ -151,7 +151,7 @@ From RB-004 (tree construction):
 >    - What fraction are detail (specific facts, identifiers) vs thematic (broad topics)?
 >    - What fraction are entity-centric vs concept-centric?
 >    - Is there empirical data from enterprise search, knowledge management, or RAG deployment studies?
->    - How does the Su use case (agentic, precision-focused, growing knowledge base) differ from academic retrieval benchmarks?
+>    - How does an agentic use case (precision-focused, growing knowledge base) differ from academic retrieval benchmarks?
 >
 > 4. **DPI (Data Processing Inequality) failure analysis.** Summaries lose information. When does this cause routing failure vs merely degraded ranking? What types of information are most likely to be lost? How does the structured routing summary format mitigate this? At what corpus heterogeneity does DPI failure dominate?
 >

@@ -4,635 +4,146 @@
 # Update this at session end and read at session start.
 
 version: "1.0"
-last_updated: "2026-02-18"
-last_session: "2026-02-18"
+last_updated: "2026-02-20"
+last_session: "2026-02-20"
 
 # Current focus
 current:
-  phase: "validation"  # discovery | research | implementation | validation
-  focus: "Medium corpus prepared + queries generated. Ready to run medium baselines, then HCR fail-fast."
+  phase: "publication"  # discovery | research | implementation | validation | publication
+  focus: "Publication draft complete (docs/research/paper.md). Ready for review. Next: alternative retrieval research."
   blockers:
-    - "Python _lzma module missing — pyenv Python 3.12.3 built without xz. Fix: brew install xz && pyenv install --force 3.12.3. Doesn't block corpus prep/benchmarking, only affects full pytest suite."
+    - "Python _lzma module missing — pyenv Python 3.12.3 built without xz. Fix: brew install xz && pyenv install --force 3.12.3. Doesn't block publication work."
 
-# Research briefs status
-briefs:
-  active: []
-  completed:
-    - id: "RB-001"
-      title: "Prior art survey"
-      completed: "2026-02-13"
-      key_finding: "12+ systems in the space since 2024. Hierarchical retrieval outperforms flat RAG on complex tasks (2-20pp gains). LATTICE is closest to HCR. No system targets hard token budgets. RAPTOR collapsed-tree result challenges strict top-down traversal."
-    - id: "RB-002"
-      title: "Theoretical basis: elimination vs similarity"
-      completed: "2026-02-13"
-      key_finding: "Strict top-down elimination is theoretically fragile — error compounds as (1-ε)^d. RAPTOR collapsed-tree result is structurally predicted, not anomalous. Hybrid coarse-to-fine (shallow elimination + flat search within survivors) is theoretically optimal. H1 needs reframing from 'elimination > similarity' to 'hierarchical coarse-to-fine with token budgets > flat retrieval'."
-    - id: "RB-003"
-      title: "Scoring mechanics"
-      completed: "2026-02-13"
-      key_finding: "Cascade architecture (hybrid BM25+dense → cross-encoder) achieves ε ≈ 0.01–0.02 per level at ~40–80ms. Strict admissibility impossible for semantic relevance. Path-relevance EMA is higher leverage than per-node scoring. Summary quality is #1 upstream factor. AdaGReS submodular knapsack for token-budget selection. H1c → 75%."
-    - id: "RB-004"
-      title: "Tree construction"
-      completed: "2026-02-13"
-      key_finding: "Four-source convergence on construction recipe: top-down divisive clustering (bisecting k-means, d=2–3, b∈[6,15]) + LLM contrastive routing summaries + soft assignment (1–3 parents per leaf). Routing summaries are a distinct artifact class: {theme, includes, excludes, key_entities, key_terms}. Gemini adds Q-STRUM Debate for adversarial contrastive generation, depth-variable summary formatting (contrastive prose at L1, keyword arrays + multi-vector at L2), Schema Entropy Bound and Sibling Distinctiveness (BM25 softmax) as concrete tree quality metrics, and EraRAG LSH hyperplanes as alternative partitioning with deterministic incremental maintenance. Cross-branch defense requires five layers. No routing-specific tree quality metric in literature — genuine research gap. H1b → 80%."
-    - id: "RB-005"
-      title: "Failure modes"
-      completed: "2026-02-13"
-      key_finding: "No architectural showstopper. 26 failure modes identified across all pipeline stages. Overall expected failure rate: 10–20%. Top residual risks: (1) DPI information loss for detail queries, (2) budget impossibility for aggregation/listing queries, (3) beam collapse without diversity enforcement. Three design changes needed: beam diversity, collapsed-tree as co-primary, external source handling. Entity cross-links elevated to primary mechanism for dominant query type (entity-centric). Transition period (small corpus) is highest-risk deployment phase."
-    - id: "RB-006"
-      title: "Benchmark design"
-      completed: "2026-02-13"
-      key_finding: "Four-source convergence on benchmark design. Hybrid corpus (50K–100K chunks from GitLab handbook + EnronQA + synthetic injectors). 300–400 stratified queries with budget-feasibility labels. 7 core metrics led by per-level routing accuracy ε (never measured in any system) and answer sufficiency under token constraint. 4 baselines (BM25, hybrid flat, flat+CE as kill baseline, RAPTOR). Fail-fast sequence with kill criteria at each step. MVB costs $15–30 in LLM API calls. Success criteria: HCR@400 ≥ flat@400 + 5pp, ε ≤ 0.03 per level, dual-path ≥ single-path + 3pp. Kill: flat+CE beats HCR at full corpus with significance."
+# Outcome summary
+outcome:
+  verdict: "HYPOTHESIS INVALIDATED"
+  detail: |
+    HCR embedding-based tree routing fails catastrophically at medium scale (21,897 chunks).
+    nDCG dropped from 0.580 (small, 315 chunks) to 0.094 (medium, 21,897 chunks).
+    Flat+CE baseline: 0.749. Gap: 0.655. Kill criterion triggered at Phase B step 3.
+    Root cause: per-level routing error (ε) compounds as (1-ε)^d. At depth=5, even moderate
+    ε per level means near-random leaf selection. Confirmed H1c mechanism — ε is the
+    exponential lever, and current embedding-based routing cannot achieve sufficient ε at scale.
 
-# Baseline results (2026-02-15)
-baseline_results:
-  bm25:
-    ndcg_at_10: 0.705
-    recall_at_10: 0.82
-    mrr: 0.669
-    mean_tokens: 333
-  hybrid_rrf:
-    ndcg_at_10: 0.719
-    recall_at_10: 0.90
-    mrr: 0.662
-    mean_tokens: 343
-  flat_ce:
-    ndcg_at_10: 0.835
-    recall_at_10: 0.94
-    mrr: 0.803
-    mean_tokens: 354
-  notes: "IR metrics computed on full ranked list (top-50). Token metrics on 400-token packed result. Median chunk ~470 tokens, so packing yields 0-1 chunks per query. Flat+CE is kill baseline. Results in benchmark/results/baseline_results.json (gitignored)."
-
-# HCR results
-hcr_results:
-  config_v1:
-    tree_depth: 2
-    branching: 10
-    beam_width: 3
-    actual_branches: 4
-    ndcg_at_10: 0.345
-    recall_at_10: 0.36
-    mrr: 0.340
-    mean_tokens: 161
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.460
-    epsilon_level_2: 0.640
-    sibling_distinctiveness: 0.690
-    notes: "OBSOLETE — tree builder was broken (flat, not hierarchical). See config_v2."
-  config_v2:
-    tree_depth: 3
-    branching: 8
-    beam_width: 3
-    cascade: "pre_filter_k=3, final_k=2, CE on all levels"
-    tree_structure: "L0:1(8) L1:8(8) L2:64(avg4.7) L3:253 L4:80 leaves"
-    ndcg_at_10: 0.318
-    recall_at_10: 0.40
-    mrr: 0.298
-    mean_tokens: 234
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.320
-    epsilon_level_2: 0.620
-    epsilon_level_3: 0.780
-    epsilon_level_4: 1.000
-    sibling_distinctiveness: 0.608
-    notes: "Fixed hierarchical builder. Proper k-ary tree. CE on all levels."
-  config_v3_cosine_narrow:
-    tree_depth: 3
-    branching: 8
-    beam_width: 3
-    cascade: "pre_filter_k=3, final_k=2, cosine-only for internal nodes"
-    ndcg_at_10: 0.287
-    recall_at_10: 0.32
-    mrr: 0.281
-    mean_tokens: 235
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.320
-    epsilon_level_2: 0.580
-    epsilon_level_3: 0.680
-    epsilon_level_4: 0.920
-    notes: "CE removed from internal node routing. Epsilon improved at L2-L4 but nDCG dropped — CE accidentally helped in 14 decisions lost."
-  config_v4_cosine_wide:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, cosine-only for internal nodes"
-    ndcg_at_10: 0.420
-    recall_at_10: 0.46
-    mrr: 0.411
-    mean_tokens: 255
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.240
-    epsilon_level_2: 0.460
-    epsilon_level_3: 0.540
-    epsilon_level_4: 0.879
-    notes: "Wider beam. nDCG +32% over v2. Confirms tree structure is sound — correct branches exist but ranked 4th-5th by cosine."
-  config_v5_cosine_ceiling:
-    tree_depth: 3
-    branching: 8
-    beam_width: 8
-    cascade: "pre_filter_k=8, final_k=5, cosine-only for internal nodes"
-    ndcg_at_10: 0.509
-    recall_at_10: 0.58
-    mrr: 0.490
-    mean_tokens: 297
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.140
-    epsilon_level_2: 0.360
-    epsilon_level_3: 0.400
-    epsilon_level_4: 0.796
-    notes: "Ceiling test (beam=branching at L1). nDCG +60% over v2. L1 ε=0.14 (5x better). Still far from kill baseline (0.835). Token cost still below flat+CE (297 vs 354). Confirms summary quality is the bottleneck, not tree structure."
-  config_v6_enriched_embed:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
-    ndcg_at_10: 0.493
-    recall_at_10: 0.54
-    mrr: 0.481
-    mean_tokens: 249
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.160
-    epsilon_level_2: 0.360
-    epsilon_level_3: 0.480
-    epsilon_level_4: 0.813
-    sibling_distinctiveness: 0.512
-    notes: "Enriched summary_to_text() with all RoutingSummary fields (entities, terms, excludes). No tree rebuild — just re-embedded. +17% nDCG over v4. Best beam=5 result."
-  config_v7_contrastive_prompts:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
-    ndcg_at_10: 0.484
-    recall_at_10: 0.52
-    mrr: 0.479
-    mean_tokens: 269
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.140
-    epsilon_level_2: 0.440
-    epsilon_level_3: 0.500
-    epsilon_level_4: 0.784
-    sibling_distinctiveness: 0.450
-    notes: "More specific contrastive prompts. Rebuilt tree. L1 ε improved marginally but L2 worse. Wash."
-  config_v8_content_snippets:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
-    ndcg_at_10: 0.485
-    recall_at_10: 0.54
-    mrr: 0.472
-    mean_tokens: 279
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.160
-    epsilon_level_2: 0.420
-    epsilon_level_3: 0.500
-    epsilon_level_4: 0.778
-    sibling_distinctiveness: 0.489
-    notes: "Content snippets (first 200 chars) added to summaries. Rebuilt tree. No meaningful improvement. MiniLM embedding space saturated."
-  config_v9_mpnet:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
-    embedding_model: "all-mpnet-base-v2 (768-dim)"
-    ndcg_at_10: 0.450
-    recall_at_10: 0.54
-    mrr: 0.426
-    mean_tokens: 296
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.180
-    epsilon_level_2: 0.380
-    epsilon_level_3: 0.480
-    epsilon_level_4: 0.763
-    sibling_distinctiveness: 0.455
-    notes: "mpnet 768-dim WORSE than MiniLM 384-dim. nDCG -8.7% vs v6. L1 ε worse (0.18 vs 0.16). Sibling distinctiveness dropped 0.512→0.455. Tree structure was clustered in MiniLM space — mpnet embedding space is misaligned. Confirms tree must be rebuilt for new embedding model."
-  config_v10_mpnet_rebuilt:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, cosine-only internal"
-    embedding_model: "all-mpnet-base-v2 (768-dim)"
-    tree_rebuilt: true
-    ndcg_at_10: 0.540
-    recall_at_10: 0.62
-    mrr: 0.516
-    mean_tokens: 231
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.240
-    epsilon_level_2: 0.420
-    epsilon_level_3: 0.520
-    epsilon_level_4: 0.750
-    sibling_distinctiveness: 0.470
-    notes: "mpnet with rebuilt tree. BEST nDCG so far (+9.5% vs v6). Recall@10 0.62 (best). Tokens 231 (best). BUT routing epsilon WORSE (L1 0.24 vs 0.16). nDCG gain comes from better leaf scoring (L4 ε 0.75 vs 0.81) and richer embeddings downstream, not from routing precision. Kill baseline still 0.835."
-  config_v11_mpnet_beam8:
-    tree_depth: 3
-    branching: 8
-    beam_width: 8
-    cascade: "pre_filter_k=8, final_k=5, cosine-only internal"
-    embedding_model: "all-mpnet-base-v2 (768-dim)"
-    tree_rebuilt: true
-    ndcg_at_10: 0.580
-    recall_at_10: 0.66
-    mrr: 0.556
-    mean_tokens: 290
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.060
-    epsilon_level_2: 0.280
-    epsilon_level_3: 0.420
-    epsilon_level_4: 0.838
-    sibling_distinctiveness: 0.470
-    notes: "beam=8 ceiling on mpnet rebuilt tree. BEST nDCG (0.580, +7.4% vs v10). L1 ε=0.06 — dramatic improvement (was 0.24). Routing at L1 nearly solved. L2 ε=0.28 is now the routing bottleneck. L4 ε worse (0.84 vs 0.75) — more leaves explored = more noise in CE leaf scoring. Token cost 290 still below flat+CE 354. Below Phase A success threshold (0.65) but L1 result is encouraging."
-  config_v12_bm25_hybrid_routing:
-    tree_depth: 3
-    branching: 8
-    beam_width: 5
-    cascade: "pre_filter_k=5, final_k=3, RRF(cosine, BM25) for internal nodes"
-    embedding_model: "all-mpnet-base-v2 (768-dim)"
-    tree_rebuilt: true
-    ndcg_at_10: 0.465
-    recall_at_10: 0.54
-    mrr: 0.446
-    mean_tokens: 219
-    epsilon_level_0: 0.000
-    epsilon_level_1: 0.220
-    epsilon_level_2: 0.500
-    epsilon_level_3: 0.580
-    epsilon_level_4: 0.839
-    sibling_distinctiveness: 0.470
-    notes: "NEGATIVE RESULT. BM25 hybrid routing over summary key_terms/key_entities hurts nDCG -14% vs cosine-only (v10). L1 ε marginally better (0.22 vs 0.24) but L2 ε worse (0.50 vs 0.42). BM25 signal too sparse on short structured text (~10-20 tokens per node). RRF overweights noisy keyword matches. Reverted to cosine-only."
-
-# Summary quality experiment (2026-02-16, session 4)
-summary_quality_experiment:
-  finding: |
-    Three approaches tested to improve summary embedding discrimination.
-    Only enriched embedding text (v6) helped. Contrastive prompts (v7) and
-    content snippets (v8) were washes. All plateau at nDCG ~0.49 with beam=5.
-    MiniLM 384-dim embedding space is saturated — adding more text doesn't
-    help discrimination. The bottleneck has shifted from summary text quality
-    to embedding model capacity.
-  best_config: "v6 (enriched embed): nDCG=0.493, L1 ε=0.16, 249 tokens"
-  approaches:
-    - "v6: Enriched _get_text() with all fields → nDCG=0.493 (+17% vs v4)"
-    - "v7: Contrastive prompts, rebuilt tree → nDCG=0.484 (wash)"
-    - "v8: Content snippets, rebuilt tree → nDCG=0.485 (wash)"
-  conclusion: "Embedding model is the bottleneck, not summary text. Next lever: stronger embedding model (E5-large, BGE, Cohere)."
-
-# Beam width sweep (2026-02-16, session 3)
-beam_sweep:
-  finding: |
-    Wider beam monotonically improves both epsilon and nDCG. Tree structure
-    is sound. Correct branches are present but cosine similarity with current
-    summary embeddings ranks them too low. beam=8 (ceiling) achieves nDCG=0.509,
-    still far from kill baseline 0.835. Summary embedding quality is the #1 lever.
-  progression:
-    - "beam=3: nDCG=0.287, L1ε=0.32"
-    - "beam=5: nDCG=0.420, L1ε=0.24"
-    - "beam=8: nDCG=0.509, L1ε=0.14"
-  token_efficiency: "beam=8 uses 297 tokens vs flat+CE 354 — token advantage holds even at wide beam"
-
-# Routing diagnosis (2026-02-16, session 2)
-routing_diagnosis:
-  inspector_script: "scripts/inspect_summaries.py"
-  per_level_accuracy:
-    L0_cosine_miss: "24%"
-    L0_ce_miss: "14%"
-    L1_cosine_miss: "22%"
-    L1_ce_miss: "22%"
-    L2_cosine_miss: "8%"
-    L2_ce_miss: "38%"
-    L3_cosine_miss: "0%"
-    L3_ce_miss: "21%"
-  decision_breakdown:
-    total_decisions: 162
-    both_correct: "109 (67%)"
-    cosine_ok_ce_wrong: "26 (16%)"
-    cosine_wrong_ce_ok: "14 (9%)"
-    both_wrong: "13 (8%)"
-  ce_score_distribution:
-    when_correct_mean: -3.833
-    when_correct_range: "-11.09 to +5.69"
-    when_incorrect_correct_branch_mean: -7.067
-    when_incorrect_top1_mean: -4.767
-  root_cause: |
-    MS-MARCO cross-encoder trained on natural language passages, not structured
-    routing metadata ("Theme: X. Includes: A, B. Excludes: C."). Scores deeply
-    negative for all candidates, destroying signal. CE is net negative: hurts
-    26 correct cosine decisions, saves only 14. At L2 especially destructive
-    (8% cosine miss → 38% CE miss).
-  category_failure_rates:
-    temporal: "2/2 (100%)"
-    ambiguous: "2/2 (100%)"
-    single_branch: "10/12 (83%)"
-    dpi: "5/7 (71%)"
-    comparative: "3/5 (60%)"
-    ood: "3/5 (60%)"
-    entity_spanning: "4/10 (40%)"
-    multi_hop: "2/5 (40%)"
-    aggregation: "0/2 (0%)"
-
-# Implementation phases completed
-implementation:
-  phases_complete:
-    - "Phase 1: Core types (Pydantic models)"
-    - "Phase 2: Corpus pipeline (chunker, loader, embedder)"
-    - "Phase 3: Index infrastructure (BM25, vector, hybrid)"
-    - "Phase 4: LLM client + caching"
-    - "Phase 5: Retrieval baselines (BM25, hybrid, flat+CE)"
-    - "Phase 6: Evaluation metrics (epsilon, sufficiency, IR)"
-    - "Phase 7: Query suite + benchmark runner"
-    - "Phase 9: HCR core (tree builder, beam traversal, collapsed retrieval, dual-path, scoring cascade)"
-    - "Code review fixes"
-    - "Query generator fix (JSON fence stripping, Haiku model)"
-    - "Sanity check passed (all baselines operational)"
-    - "Baseline evaluation fix (separate ranking from token packing)"
-    - "Baseline evaluation complete (BM25, hybrid, flat+CE)"
-    - "Per-category baseline analysis (scripts/analyse_baselines.py)"
-    - "HCR baseline class + benchmark integration"
-    - "Cascade leaf scoring fix (use chunk embeddings for leaves)"
-    - "First HCR evaluation: nDCG=0.345, epsilon L1=0.46"
-    - "Hierarchical tree builder fix (k-ary clustering + recursive node creation)"
-    - "Config A evaluation: nDCG=0.318, epsilon L1=0.32 (proper tree)"
-    - "Summary quality inspector (scripts/inspect_summaries.py)"
-    - "Routing diagnosis: CE is net negative for routing, cosine-only is better"
-    - "Cosine-only routing for internal nodes (cascade.py)"
-    - "Beam width sweep: beam=3/5/8, confirming tree structure sound"
-    - "Summary text enrichment: summary_to_text() with all RoutingSummary fields"
-    - "Contrastive prompts: more specific terms/entities (rebuilt tree)"
-    - "Content snippets: first 200 chars in summary embeddings (rebuilt tree)"
-    - "Embedding ceiling identified: MiniLM saturated at nDCG ~0.49"
-    - "mpnet swap (no rebuild): nDCG=0.450, worse than MiniLM — tree/embedding alignment matters"
-    - "mpnet with rebuilt tree (v10): nDCG=0.540, BEST result. Routing worse but leaf scoring better."
-  test_count: 126
-  mypy_status: "clean (30 source files)"
-  ruff_status: "clean"
-
-# Hypothesis summary
+# Hypothesis resolution
 hypotheses:
-  total: 3
-  validated: 0
-  invalidated: 0
-  uncertain: 3
-  retired: 1  # Original H1
-  highest_confidence: "H1b (hybrid coarse-to-fine superiority) at 80%"
-  lowest_confidence: "H1a (token efficiency) at 65%"
-  notes: |
-    Twelve HCR configs tested (v1-v12). Phase A complete. Best: v11
-    (beam=8, mpnet rebuilt) nDCG=0.580, L1 ε=0.06. BM25 hybrid routing
-    (v12) was net negative (-14%). Kill baseline: 0.835, gap 0.256.
-    Small-corpus ceiling reached. Scale-up (Phase B) is the real test —
-    HCR designed for large corpora where flat search degrades.
+  - id: "H1a"
+    statement: "Hierarchical coarse-to-fine achieves equivalent or better accuracy than flat similarity while using fewer tokens"
+    status: "INVALIDATED"
+    evidence: "nDCG 0.094 vs 0.749 at 21K chunks"
+  - id: "H1b"
+    statement: "Coarse elimination + fine similarity outperforms either pure approach alone"
+    status: "INVALIDATED"
+    evidence: "Coarse elimination destroys recall at scale"
+  - id: "H1c"
+    statement: "Per-level scoring quality is the primary determinant of retrieval quality — error compounds at (1-ε)^d"
+    status: "CONFIRMED"
+    evidence: "ε compounds at depth=5, driving nDCG from 0.580→0.094. Confirmed as mechanism of failure."
 
-# Knowledge accumulation
+# Novel contributions (for publication)
+novel_contributions:
+  - name: "Per-level routing epsilon (ε)"
+    description: "Metric measuring routing error at each tree level. Never measured in any prior system. Shows how error compounds exponentially with depth."
+  - name: "Systematic negative result"
+    description: "12 configurations tested across 2 scales, 2 embedding models, 4 routing strategies. Controlled, reproducible invalidation of embedding-based tree routing."
+  - name: "Empirical patterns"
+    description: "5 documented patterns: DPI summary blindness, CE routing damage, beam width as diagnostic, embedding saturation, BM25 routing sparsity."
+
+# Key results at two scales
+results_summary:
+  small_corpus:
+    chunks: 315
+    best_hcr: "v11 (beam=8, mpnet, cosine-only): nDCG=0.580"
+    flat_ce: "nDCG=0.835"
+    gap: 0.255
+  medium_corpus:
+    chunks: 21897
+    hcr: "nDCG=0.094"
+    flat_ce: "nDCG=0.749"
+    gap: 0.655
+    tree_stats: "25,716 nodes, 3,819 internal, depth=5, 8 root branches, SD=0.445"
+
+# Research briefs (Phase 0) — all complete
+briefs:
+  - {id: "RB-001", title: "Prior art survey", completed: "2026-02-13"}
+  - {id: "RB-002", title: "Elimination vs similarity", completed: "2026-02-13"}
+  - {id: "RB-003", title: "Scoring mechanics", completed: "2026-02-13"}
+  - {id: "RB-004", title: "Tree construction", completed: "2026-02-13"}
+  - {id: "RB-005", title: "Failure modes", completed: "2026-02-13"}
+  - {id: "RB-006", title: "Benchmark design", completed: "2026-02-13"}
+
+# Experimental history (12 configs)
+experiment_history:
+  - {id: "v1", note: "OBSOLETE — flat tree builder bug", ndcg: 0.345}
+  - {id: "v2", note: "First proper tree, CE all levels", ndcg: 0.318}
+  - {id: "v3", note: "Cosine-only routing", ndcg: 0.287}
+  - {id: "v4", note: "Beam=5 cosine-only", ndcg: 0.420}
+  - {id: "v5", note: "Beam=8 ceiling (MiniLM)", ndcg: 0.509}
+  - {id: "v6", note: "Enriched embed text", ndcg: 0.493}
+  - {id: "v7", note: "Contrastive prompts (wash)", ndcg: 0.484}
+  - {id: "v8", note: "Content snippets (wash)", ndcg: 0.485}
+  - {id: "v9", note: "mpnet no rebuild (WORSE)", ndcg: 0.450}
+  - {id: "v10", note: "mpnet rebuilt tree (BEST beam=5)", ndcg: 0.540}
+  - {id: "v11", note: "mpnet beam=8 (BEST overall)", ndcg: 0.580}
+  - {id: "v12", note: "BM25 hybrid routing (NEGATIVE)", ndcg: 0.465}
+
+# Knowledge patterns
 knowledge:
-  patterns_discovered: 5
-  variants_discovered: 0
-  contexts_documented: 0
-  domains_documented: 0
-  edge_cases: 0
-  notes: |
-    Pattern 1: "DPI summary blindness" — cross-encoder gives all branches
-    ~-11 score for specific detail queries because coarse routing summaries
-    don't contain the specific terms. Predicted by RB-005 failure mode #1.
-    Confirmed across both tree configs (flat and hierarchical).
-    Pattern 2: "CE routing damage" — MS-MARCO CE trained on natural language,
-    not structured metadata. Scores deeply negative (-3 to -11) even for correct
-    branch. Flips 26 correct cosine decisions to wrong. Net negative for routing.
-    Pattern 3: "Beam width as diagnostic" — monotonic improvement in epsilon/nDCG
-    with wider beam confirms tree structure is sound and summary quality is the
-    bottleneck. beam=3→5→8 shows clear ceiling curve.
-    Pattern 4: "Embedding saturation" — adding more text (entities, terms,
-    content snippets) to MiniLM 384-dim embeddings doesn't improve discrimination
-    beyond the enriched-embed baseline. Prompts and content don't matter once
-    embedding space is the bottleneck. Model capacity is the lever.
-    Pattern 5: "BM25 routing sparsity" — BM25 over structured summary keywords
-    (~10-20 tokens per node) produces noisy rankings that hurt RRF fusion with
-    cosine. BM25 needs sufficient text mass to produce meaningful IDF-weighted
-    scores. Works well on chunk content (hundreds of tokens), fails on compact
-    keyword lists.
+  patterns:
+    - "DPI summary blindness — coarse summaries lack detail for specific queries"
+    - "CE routing damage — MS-MARCO CE net negative on structured routing metadata"
+    - "Beam width as diagnostic — monotonic ε improvement confirms tree structure sound"
+    - "Embedding saturation — MiniLM 384-dim space saturated for summary discrimination"
+    - "BM25 routing sparsity — BM25 over ~10-20 token keyword lists produces noise"
 
-# Next actions (prioritized)
-next_actions:
-  # Phase A: Small-corpus ceiling (ADR-002)
-  - id: 1
-    phase: A
-    action: "Beam=8 ceiling test on mpnet rebuilt tree"
-    status: DONE
-    result: "v11: nDCG=0.580, L1 ε=0.06. Below 0.65 success threshold but L1 routing nearly solved. L4 ε worsened (0.84). Bottleneck shifted to L2 routing and leaf scoring."
-  - id: 2
-    phase: A
-    action: "BM25 hybrid routing on summary key_terms/key_entities"
-    status: DONE
-    result: "v12: nDCG=0.465 — NEGATIVE RESULT (-14% vs v10). BM25 too sparse on short summary text. Reverted to cosine-only."
-  - id: 3
-    phase: A
-    action: "Phase A decision point"
-    status: DONE
-    result: |
-      Neither experiment broke 0.65 threshold. Best: v11 (beam=8 mpnet) at nDCG=0.580.
-      Dense+BM25 routing has a ceiling at small corpus scale. Proceed to Phase B (scale-up)
-      with v11 config (beam=8, mpnet, cosine-only) as HCR candidate.
-  # Phase B: Scale-up validation (ADR-002)
-  - id: 4
-    phase: B
-    action: "Phase B infrastructure (code)"
-    status: DONE
-    result: |
-      8 files changed (936 insertions). Three-tier --scale (small/medium/large).
-      Wikipedia loader via HuggingFace datasets. Batched embedding with tqdm.
-      Query checkpointing. Fail-fast mode (RB-006 kill sequence). Tree builder
-      progress logging. Scale-specific directories. mypy/ruff/pytest clean.
-  - id: 5
-    phase: B
-    action: "Prepare medium corpus (stepping stone)"
-    status: DONE
-    result: |
-      21,897 chunks from 3,885 docs (full GitLab handbook). Sanity check passed
-      (all 3 baselines work). 150 queries generated across 9 categories.
-      Summarizer JSON extraction fix committed (code fence stripping).
-  - id: 6
-    phase: B
-    action: "Run medium baselines + fail-fast"
-    status: TODO
-    details: |
-      Step 1: python scripts/run_benchmark.py --scale medium --mode baselines
-      Step 2: python scripts/run_benchmark.py --scale medium --mode failfast
-      Stepping stone. Check if kill criteria trigger early at ~21K chunks.
-  - id: 7
-    phase: B
-    action: "Prepare large corpus (GitLab + Wikipedia)"
-    status: TODO
-    details: |
-      python scripts/prepare_corpus.py --scale large
-      Downloads Wikipedia via HuggingFace (~2500 articles). Combined ~60K chunks.
-  - id: 8
-    phase: B
-    action: "Build large tree + generate 350 queries"
-    status: TODO
-    details: |
-      Tree: depth=4, branching=8 (~4600 Haiku calls, ~$14).
-      Queries: 350 stratified (~$0.35). Total ~$15.
-  - id: 9
-    phase: B
-    action: "Full fail-fast at large scale (RB-006)"
-    status: TODO
-    details: |
-      Rerun baselines + best HCR config at ~60K chunks. Measure all 7 core
-      metrics. Apply kill criteria. This is the definitive test of H1a/H1b/H1c.
-
-# Implementation progress
+# Implementation stats
 implementation:
-  phases_complete:
-    - "Phase 1: Core types (Pydantic models)"
-    - "Phase 2: Corpus pipeline (chunker, loader, embedder)"
-    - "Phase 3: Index infrastructure (BM25, vector, hybrid)"
-    - "Phase 4: LLM client + caching"
-    - "Phase 5: Retrieval baselines (BM25, hybrid, flat+CE)"
-    - "Phase 6: Evaluation metrics (epsilon, sufficiency, IR)"
-    - "Phase 7: Query suite + benchmark runner"
-    - "Phase 9: HCR core (tree builder, beam traversal, collapsed retrieval, dual-path, scoring cascade)"
-    - "Code review fixes"
-    - "Query generator fix (JSON fence stripping, Haiku model)"
-    - "Sanity check passed (all baselines operational)"
-    - "Baseline evaluation fix (separate ranking from token packing)"
-    - "Baseline evaluation complete (BM25, hybrid, flat+CE)"
-    - "Per-category baseline analysis (scripts/analyse_baselines.py)"
-    - "HCR baseline class + benchmark integration"
-    - "Cascade leaf scoring fix (use chunk embeddings for leaves)"
-    - "First HCR evaluation: nDCG=0.345, epsilon L1=0.46"
-    - "Hierarchical tree builder fix (k-ary clustering + recursive node creation)"
-    - "Config A evaluation: nDCG=0.318, epsilon L1=0.32 (proper tree)"
-    - "Summary quality inspector (scripts/inspect_summaries.py)"
-    - "Routing diagnosis: CE is net negative for routing, cosine-only is better"
-    - "Cosine-only routing for internal nodes (cascade.py)"
-    - "Beam width sweep: beam=3/5/8, confirming tree structure sound"
-    - "Summary text enrichment: summary_to_text() with all RoutingSummary fields"
-    - "Contrastive prompts: more specific terms/entities (rebuilt tree)"
-    - "Content snippets: first 200 chars in summary embeddings (rebuilt tree)"
-    - "Embedding ceiling identified: MiniLM saturated at nDCG ~0.49"
-    - "mpnet swap (no rebuild): nDCG=0.450, worse than MiniLM — tree/embedding alignment matters"
-    - "mpnet with rebuilt tree (v10): nDCG=0.540, BEST result. Routing worse but leaf scoring better."
-    - "Phase B infrastructure: --scale flag, Wikipedia loader, batched embedding, fail-fast mode"
-    - "Summarizer JSON extraction fix (code fence stripping)"
-    - "Medium corpus prepared: 21,897 chunks, 150 queries, sanity check passed"
   test_count: 126
-  mypy_status: "clean (30+ source files)"
+  mypy_status: "clean"
   ruff_status: "clean"
+  sessions: 10  # sessions 1-10 (Feb 13-20)
 
-# Notes for next session
+# Next actions
+next_actions:
+  - id: 1
+    action: "Plan and write publication document"
+    status: DONE
+    details: "Paper written: docs/research/paper.md. All numbers cross-checked against source JSON."
+  - id: 2
+    action: "Review and refine paper"
+    status: TODO
+    details: "JC review of paper.md. Refine language, add full author info, verify LATTICE citation."
+  - id: 3
+    action: "Research alternative retrieval approaches"
+    status: TODO
+    details: "Evaluate alternatives for the use case (minimum viable context for LLM systems)."
+
+# Session notes
 notes: |
-  SESSION 2026-02-18 (session 8) SUMMARY:
+  SESSION 2026-02-20 (session 10):
+  Publication draft complete. Wrote docs/research/paper.md (~12 pages).
+  All numbers cross-checked against source JSON files. 4 discrepancies found and fixed.
+  Updated _state.yaml and hypotheses.md.
 
-  SHORT SESSION — medium corpus pipeline completed through query generation:
-  1. Committed summarizer JSON extraction fix (code fence stripping)
-  2. Created branch 0218jc from main
-  3. Prepared medium corpus: 21,897 chunks from 3,885 docs (full GitLab handbook)
-  4. Sanity check passed: all 3 baselines operational at 21K chunks
-  5. Generated 150 queries across 9 categories (8 parse failures recovered)
+  SESSION 2026-02-19 (session 9):
+  Cleaned up _state.yaml. Planning publication work.
 
-  SESSION DISCIPLINE: Worked in step-by-step increments with JC triggering each
-  step. No multi-hour marathons. Each step was independently verifiable.
+  SESSION 2026-02-19 (session 8b — same day as 8, different session):
+  Medium fail-fast KILLED HCR. nDCG=0.094 vs Flat+CE=0.749 at 21K chunks.
+  Hypothesis invalidated. All three sub-hypotheses resolved.
 
-  NEXT SESSION — Continue Phase B pipeline:
-  1. Run medium baselines:
-     set -a && source .env && set +a && python scripts/run_benchmark.py --scale medium --mode baselines
-  2. Run medium fail-fast (HCR vs baselines at 21K chunks):
-     set -a && source .env && set +a && python scripts/run_benchmark.py --scale medium --mode failfast
-  3. If medium passes: prepare large corpus (GitLab + Wikipedia ~60K chunks)
-  4. Build large tree (depth=4, branching=8, ~$14 in Haiku calls)
-  5. Generate 350 queries (~$0.35)
-  6. Full fail-fast at large scale — DEFINITIVE TEST
+  SESSION 2026-02-18 (session 8):
+  Medium corpus prepared (21,897 chunks, 150 queries). Sanity check passed.
 
-  COST ESTIMATE: ~$15-20 remaining for large-scale tree + queries.
+  SESSION 2026-02-17 (session 7):
+  Phase B infrastructure complete. --scale flag, Wikipedia loader, fail-fast mode.
 
-  Branch: 0218jc
-  Known env issue: _lzma module missing (pyenv). Doesn't block benchmarking.
+  SESSION 2026-02-16 (sessions 3-6):
+  Phase A complete. 12 configs tested. Best: v11 (nDCG=0.580). BM25 hybrid negative.
+  Proceeded to Phase B scale-up.
 
-  PREVIOUS SESSION (2026-02-17, session 7):
-  Phase B infrastructure complete. 8 files changed (936 insertions).
-  Three-tier --scale, Wikipedia loader, batched embedding, fail-fast mode.
+  SESSION 2026-02-15 (session 2):
+  Baselines established. Flat+CE kill baseline: nDCG=0.835.
 
-  Branch: 0215jc (continuing, or merge to main and create 0218jc)
-
-  PREVIOUS SESSION (2026-02-16, session 6) SUMMARY:
-
-  PHASE A COMPLETE — two ceiling experiments:
-  1. v11 — beam=8 on mpnet rebuilt tree: nDCG=0.580 (+7.4% vs v10)
-     - L1 ε=0.06 (nearly solved!) but L2 ε=0.28, L4 ε=0.84
-     - BEST nDCG ever, but below 0.65 Phase A success threshold
-  2. v12 — BM25 hybrid routing (RRF cosine+BM25): nDCG=0.465 (-14% vs v10)
-     - NEGATIVE RESULT. BM25 too sparse on short summary text
-     - Reverted to cosine-only routing
-
-  PHASE A DECISION: Neither experiment broke 0.65. Small-corpus ceiling
-  reached. v11 (beam=8, mpnet, cosine-only) is best config at nDCG=0.580.
-  Proceed to Phase B: scale-up to 50K-100K chunks per RB-006 design.
-
-  KEY INSIGHT: At 315 chunks, flat+CE can score every chunk directly.
-  HCR's advantage is efficiency at scale — the 0.256 nDCG gap may
-  narrow or invert when flat search can't afford to CE-score everything.
-
-  New pattern: "BM25 routing sparsity" — BM25 over structured summary
-  keywords (~10-20 tokens) produces noisy rankings that hurt RRF fusion.
-  BM25 works well on natural language (chunk content) but poorly on
-  compact keyword lists.
-
-  PREVIOUS SESSION (session 5) SUMMARY:
-
-  TWO MPNET EXPERIMENTS:
-  1. v9 — mpnet swap WITHOUT tree rebuild: nDCG=0.450 (-8.7% vs v6)
-     Tree-embedding misalignment confirmed.
-  2. v10 — mpnet WITH rebuilt tree: nDCG=0.540 (+9.5% vs v6) — BEST RESULT
-     - Recall@10: 0.62 (best), MeanTok: 231 (best)
-     - BUT routing epsilon WORSE: L1 ε=0.24 (vs 0.16 with MiniLM)
-     - L4 ε improved: 0.75 (vs 0.81) — leaf scoring is where mpnet helps
-     - Sibling distinctiveness: 0.470 (vs 0.512 MiniLM)
-
-  KEY INSIGHT: mpnet helps at the leaf level (better chunk discrimination)
-  but routing through summary nodes is WORSE. 768-dim space doesn't help
-  structured summary text as much as natural language chunks. The routing
-  epsilon problem is not about embedding capacity — it's about how well
-  cosine similarity works on structured routing summaries.
-
-  New pattern: "Routing vs leaf discrimination split" — different levels of
-  the tree may benefit from different embedding strategies.
-
-  NEXT: Try beam=8 ceiling with mpnet tree. If routing epsilon doesn't
-  improve, the lever is BM25 hybrid routing (keyword matching on summaries)
-  rather than embedding model upgrades.
-
-  PREVIOUS SESSION (session 4):
-
-  THREE SUMMARY TEXT EXPERIMENTS:
-  1. Enriched embedding text (v6): summary_to_text() includes all fields
-     - nDCG=0.493 (+17% vs v4), L1 ε=0.16, 249 tokens
-     - WINNER — only approach that moved the needle
-  2. Contrastive prompts (v7): more specific terms/entities in prompts
-     - nDCG=0.484 (wash), L1 ε=0.14 (marginal), L2 ε=0.44 (worse)
-  3. Content snippets (v8): first 200 chars of content in embeddings
-     - nDCG=0.485 (wash), no improvement anywhere
-
-  KEY FINDING: MiniLM 384-dim embedding space is the bottleneck, not summary
-  text quality. All three approaches plateau at nDCG ~0.49. Adding more/better
-  text doesn't help because the embedding model can't discriminate further.
-  New pattern: "Embedding saturation."
-
-  CURRENT STATE OF CODE:
-  - cascade.py: cosine-only internal, unified summary_to_text()
-  - builder.py: summary_to_text() with all fields + content_snippet
-  - summarizer.py: contrastive prompts with specific term examples
-  - hcr_baseline.py: beam=5, pfk=5, fk=3 (production defaults)
-  - Cached tree: benchmark/results/hcr_tree.json (v8 tree with snippets)
-  - Old trees backed up: hcr_tree_v6.json, hcr_tree_v7.json
-
-  NEXT SESSION PRIORITY: Stronger embedding model.
-  - Try all-mpnet-base-v2 (768-dim, drop-in replacement)
-  - If that doesn't work, E5-large or BGE-large
-  - Only need to re-embed summaries, no tree rebuild
-  - Target: nDCG > 0.60, L1 ε ≤ 0.10
-
-  Key files:
-  - hcr_core/corpus/embedder.py — embedding model configuration
-  - hcr_core/tree/builder.py — summary_to_text() and _embed_summary()
-  - scripts/run_benchmark.py — re-embed step + benchmark runner
-
-  Run: set -a && source .env && set +a && python scripts/run_benchmark.py --mode hcr
-  Branch: 0215jc
+  SESSION 2026-02-13 (session 1):
+  All 6 research briefs completed. Go/no-go: GO on Phase 1.

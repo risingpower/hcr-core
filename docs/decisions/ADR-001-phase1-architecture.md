@@ -47,7 +47,7 @@ This ADR records the architectural decisions for Phase 1 implementation.
 
 **Decision:** Use `anthropic` as the only LLM client. Claude serves as both summary generator and evaluation judge.
 
-**Rationale:** Su uses `anthropic>=0.49`. Adding `openai` for evaluation creates a second dependency with different auth, rate limits, and failure modes. Claude is capable as an eval judge. One client simplifies the stack.
+**Rationale:** The consumer application uses `anthropic>=0.49`. Adding `openai` for evaluation creates a second dependency with different auth, rate limits, and failure modes. Claude is capable as an eval judge. One client simplifies the stack.
 
 **Alternative rejected:** OpenAI GPT-4o-mini for cheaper eval — adds dependency complexity, and Claude evaluation quality is sufficient for R&D validation.
 
@@ -70,20 +70,20 @@ This ADR records the architectural decisions for Phase 1 implementation.
 
 ### 7. Baselines and evaluation outside library package
 
-**Decision:** `hcr_core/` contains only library code that Su will import. Baselines, evaluation metrics, and benchmark infrastructure live outside `hcr_core/` — in `tests/benchmark/` and a top-level `benchmark/` data directory.
+**Decision:** `hcr_core/` contains only library code that consumers will import. Baselines, evaluation metrics, and benchmark infrastructure live outside `hcr_core/` — in `tests/benchmark/` and a top-level `benchmark/` data directory.
 
-**Rationale:** Clean separation. Su imports `hcr_core.tree`, `hcr_core.traversal`, etc. It does not need BM25 baselines or LLM judges.
+**Rationale:** Clean separation. Consumers import `hcr_core.tree`, `hcr_core.traversal`, etc. They do not need BM25 baselines or LLM judges.
 
 ### 8. Consumer alignment
 
-**Decision:** Match Su's stack where dependencies overlap.
+**Decision:** Match the consumer application's stack where dependencies overlap.
 
 | Dependency | Version | Source |
 |------------|---------|--------|
-| Python | >=3.12 (3.12.3) | Su |
-| pydantic | >=2.12 | Su |
-| anthropic | >=0.49 | Su |
-| httpx | >=0.28 | Su |
+| Python | >=3.12 (3.12.3) | Consumer |
+| pydantic | >=2.12 | Consumer |
+| anthropic | >=0.49 | Consumer |
+| httpx | >=0.28 | Consumer |
 
 ## Consequences
 

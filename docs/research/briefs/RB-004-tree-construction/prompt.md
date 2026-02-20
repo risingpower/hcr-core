@@ -20,7 +20,7 @@ Previous briefs established:
 HCR's unique constraints add further requirements:
 - **Leaves are external source pointers**, not content stores. The tree is a pure routing index.
 - **Hard token budget (<400 tokens)** means the tree must produce candidate sets that are compact and information-dense.
-- **The consumer (Su) is an agentic system** with an organisational knowledge base that grows over time — dynamic maintenance matters.
+- **The consumer is an agentic system** with an organisational knowledge base that grows over time — dynamic maintenance matters.
 
 ## Research Question
 
@@ -36,7 +36,7 @@ Specifically:
 
 4. **What tree topology is optimal for HCR's parameters?** RB-002 established shallow+wide (d=2–3, b=8–12). But within those bounds: balanced vs unbalanced trees? Fixed vs variable branching factor? Homogeneous vs heterogeneous granularity across branches? Does any theory or empirical work optimise topology for routing accuracy under token budgets?
 
-5. **How should the tree be maintained as content changes?** Su's knowledge base grows over time. Full reconstruction is expensive. Incremental insertion (add new content to closest existing branch), lazy rebalancing (reconstruct subtrees that exceed quality thresholds), online clustering — what methods exist? How do they affect tree quality over time? RB-001 confirmed this is essentially unaddressed in the literature.
+5. **How should the tree be maintained as content changes?** The knowledge base grows over time. Full reconstruction is expensive. Incremental insertion (add new content to closest existing branch), lazy rebalancing (reconstruct subtrees that exceed quality thresholds), online clustering — what methods exist? How do they affect tree quality over time? RB-001 confirmed this is essentially unaddressed in the literature.
 
 6. **What role should LLMs play in tree construction?** RAPTOR uses LLMs for summarisation but not for clustering. GraphRAG uses LLMs for entity/relationship extraction before community detection. LATTICE builds trees with LLM-generated summaries at each level. Could LLMs also guide the partitioning itself — deciding what belongs together based on semantic relationships rather than embedding distance? What's the cost/quality tradeoff?
 

@@ -187,7 +187,7 @@ HCR should target dpi + comparative (12 queries) for accuracy wins. Per-query re
 
 Full details: `docs/research/hypotheses.md`
 
-**Consumer:** Su — agentic command centre. Purely outcomes-focused, minimal context, needs precise retrieval from a growing organisation.
+**Consumer:** An agentic command centre. Purely outcomes-focused, minimal context, needs precise retrieval from a growing organisation.
 
 ## Research Briefs (Phase 0)
 
@@ -229,7 +229,7 @@ Templates: `docs/research/briefs/_template-*.md`
 3. **Dual-path retrieval:** beam-search traversal AND collapsed-tree retrieval run in parallel; return higher-confidence result (RB-005: collapsed-tree promoted to co-primary, not fallback)
 4. **Fine retrieval:** within surviving branches, AdaGReS-style greedy packing (relevance − redundancy, token budget)
 5. Leaf pointers **resolve to external sources** (APIs, repos, databases, files) with retry/cache/fallback for unavailability (RB-005 design change) — data stays where it lives
-6. Target: **400 tokens as design aspiration, not hard limit.** Architecture optimises for 400; actual budget is adaptive per query. Success metric: "fraction of queries answerable under 400 tokens" (should grow as routing improves). Budget-impossible queries → multi-turn agentic decomposition by Su.
+6. Target: **400 tokens as design aspiration, not hard limit.** Architecture optimises for 400; actual budget is adaptive per query. Success metric: "fraction of queries answerable under 400 tokens" (should grow as routing improves). Budget-impossible queries → multi-turn agentic decomposition by the consumer.
 
 ### Maintenance
 - Incremental insertion: route new leaves via scoring cascade to best-matching cluster(s)

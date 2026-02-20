@@ -40,7 +40,7 @@ What is the current state of hierarchical, tree-based, and elimination-based ret
 - **RAPTOR** (Recursive Abstractive Processing for Tree-Organized Retrieval) — builds a tree by recursively clustering and summarising text chunks. Retrieval can traverse the tree or collapse layers. Published 2024.
 - **LATTICE** — MIT, Oct 2025. Appears to use hierarchical structure for retrieval. Details limited.
 - **Hierarchical RAG** — term used loosely in industry. Unclear whether it refers to a specific system or a general pattern.
-- HCR's proposed design was derived independently from first-principles product requirements (Su's need for minimal, precise context), not from academic literature. We need to now check how it overlaps with and diverges from existing work.
+- HCR's proposed design was derived independently from first-principles product requirements (the need for minimal, precise context in an agentic system), not from academic literature. We need to now check how it overlaps with and diverges from existing work.
 
 ## Prompt for Sources
 
